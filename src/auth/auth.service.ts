@@ -34,7 +34,7 @@ export class AuthService {
   ) {}
 
   async signup(signupData: SignupDto) {
-    const { email, password, name } = signupData;
+    const { email,numTel, password, name } = signupData;
 
     //Check if email is in use
     const emailInUse = await this.UserModel.findOne({
@@ -50,6 +50,7 @@ export class AuthService {
     return await this.UserModel.create({
       name,
       email,
+      numTel,
       password: hashedPassword,
     });
   }
@@ -72,7 +73,7 @@ export class AuthService {
     const tokens = await this.generateUserTokens(user._id);
     return {
       ...tokens,
-      userId: user._id,
+      user: user,
     };
   }
 
@@ -250,14 +251,19 @@ export class AuthService {
     await this.UserModel.findByIdAndUpdate(resetToken.userId, {
       password: hashedPassword
     });
-
+    //chercher user
+    const user = await this.UserModel.findOne({ email });
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
     // Marquer le token comme utilisé
     resetToken.used = true;
     await resetToken.save();
 
     return {
       success: true,
-      message: 'Mot de passe réinitialisé avec succès'
+      message: 'Mot de passe réinitialisé avec succès',
+      user: user
     };
   }
 }
