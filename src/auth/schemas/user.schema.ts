@@ -10,6 +10,9 @@ export class User extends Document {
   email: string;
 
   @Prop({ required: true })
+  numTel: string;
+
+  @Prop({ required: true })
   password: string;
 
   @Prop({ required: false, type: SchemaTypes.ObjectId })

@@ -30,10 +30,11 @@ export class AuthService {
     private jwtService: JwtService,
     private mailService: MailService,
     private rolesService: RolesService,
+    private readonly mailerService: MailService,
   ) {}
 
   async signup(signupData: SignupDto) {
-    const { email, password, name } = signupData;
+    const { email,numTel, password, name } = signupData;
 
     //Check if email is in use
     const emailInUse = await this.UserModel.findOne({
@@ -49,6 +50,7 @@ export class AuthService {
     return await this.UserModel.create({
       name,
       email,
+      numTel,
       password: hashedPassword,
     });
   }
@@ -71,7 +73,7 @@ export class AuthService {
     const tokens = await this.generateUserTokens(user._id);
     return {
       ...tokens,
-      userId: user._id,
+      user: user,
     };
   }
 
@@ -114,27 +116,6 @@ export class AuthService {
     }
 
     return { message: 'If this user exists, they will receive an email' };
-  }
-
-  async resetPassword(newPassword: string, resetToken: string) {
-    //Find a valid reset token document
-    const token = await this.ResetTokenModel.findOneAndDelete({
-      token: resetToken,
-      expiryDate: { $gte: new Date() },
-    });
-
-    if (!token) {
-      throw new UnauthorizedException('Invalid link');
-    }
-
-    //Change user password (MAKE SURE TO HASH!!)
-    const user = await this.UserModel.findById(token.userId);
-    if (!user) {
-      throw new InternalServerErrorException();
-    }
-
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
   }
 
   async refreshTokens(refreshToken: string) {
@@ -182,4 +163,119 @@ export class AuthService {
     const role = await this.rolesService.getRoleById(user.roleId.toString());
     return role.permissions;
   }
+
+
+
+
+  async requestReset(email: string) {
+    // 1. Trouver l'utilisateur
+    const user = await this.UserModel.findOne({ email });
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    // 2. Générer le token
+    const token = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiryDate = new Date();
+    expiryDate.setMinutes(expiryDate.getMinutes() + 15); // Expire dans 15 minutes
+
+    // 3. Sauvegarder le token
+    // Supprimer les anciens tokens non utilisés pour cet utilisateur
+    await this.ResetTokenModel.deleteMany({
+      userId: user._id,
+      used: false
+    });
+
+    // Créer un nouveau token
+    const resetToken = new this.ResetTokenModel({
+      userId: user._id,
+      token: token,
+      expiryDate: expiryDate,
+      email: email,
+      used: false
+    });
+
+    await resetToken.save();
+
+    // 4. Envoyer l'email
+    await this.mailerService.sendMail({
+      to: email,
+      subject: 'Réinitialisation de mot de passe',
+      text: `Votre code de réinitialisation est: ${token}. Il expirera dans 15 minutes.`,
+      html: `
+        <p>Votre code de réinitialisation est: <strong>${token}</strong></p>
+        <p>Ce code expirera dans 15 minutes.</p>
+      `
+    });
+
+    return {
+      success: true,
+      message: 'Code de réinitialisation envoyé par email'
+    };
+  }
+
+  async verifyCode(email: string, code: string) {
+    const resetToken = await this.ResetTokenModel.findOne({
+      email: email,
+      token: code,
+      used: false,
+      expiryDate: { $gt: new Date() }
+    });
+
+    if (!resetToken) {
+      throw new BadRequestException('Code invalide ou expiré');
+    }
+
+    return {
+      success: true,
+      message: 'Code vérifié avec succès'
+    };
+  }
+
+  async resetPassword(email: string, code: string, newPassword: string) {
+    const resetToken = await this.ResetTokenModel.findOne({
+      email: email,
+      token: code,
+      used: false,
+      expiryDate: { $gt: new Date() }
+    });
+
+    if (!resetToken) {
+      throw new BadRequestException('Code invalide ou expiré');
+    }
+
+    // Hasher le nouveau mot de passe
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Mettre à jour le mot de passe
+    await this.UserModel.findByIdAndUpdate(resetToken.userId, {
+      password: hashedPassword
+    });
+    //chercher user
+    const user = await this.UserModel.findOne({ email });
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+    // Marquer le token comme utilisé
+    resetToken.used = true;
+    await resetToken.save();
+
+    return {
+      success: true,
+      message: 'Mot de passe réinitialisé avec succès',
+      user: user
+    };
+  }
 }
+
+
+
+
+
+
+
+
+
+
+  
+

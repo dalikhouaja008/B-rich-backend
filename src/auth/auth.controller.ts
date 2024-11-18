@@ -22,6 +22,12 @@ export class AuthController {
     return this.authService.login(credentials);
   }
 
+  @Post('loginwithbiometric')
+  async loginwithbiometric(@Body() credentials: LoginDto) {
+    return this.authService.login(credentials);
+  }
+
+
   @Post('refresh')
   async refreshTokens(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refreshTokens(refreshTokenDto.refreshToken);
@@ -45,7 +51,7 @@ export class AuthController {
     return this.authService.forgotPassword(forgotPasswordDto.email);
   }
 
-  @Put('reset-password')
+ /* @Put('reset-password')
   async resetPassword(
     @Body() resetPasswordDto: ResetPasswordDto,
   ) {
@@ -53,5 +59,28 @@ export class AuthController {
       resetPasswordDto.newPassword,
       resetPasswordDto.resetToken,
     );
+  }*/
+
+  @Post('request')
+  async requestReset(@Body() body: { email: string }) {
+    return this.authService.requestReset(body.email);
   }
+
+  @Post('verify')
+  async verifyCode(@Body() body: { email: string; code: string }) {
+    return this.authService.verifyCode(body.email, body.code);
+  }
+
+  @Post('reset')
+  async resetPassword(
+    @Body() body: { email: string; code: string; newPassword: string },
+  ) {
+    return this.authService.resetPassword(
+      body.email,
+      body.code,
+      body.newPassword,
+    );
+  }
+
+
 }
