@@ -4,6 +4,7 @@ import { CreateExchangeRateDto } from './dto/create-exchange-rate.dto';
 import { UpdateExchangeRateDto } from './dto/update-exchange-rate.dto';
 import * as puppeteer from 'puppeteer';
 import { ExchangeRate } from './entities/exchange-rate.entity';
+import { Cron } from '@nestjs/schedule';
 //import { ExchangeRate } from './entities/exchange-rate.entity';
 
 /*interface ExchangeRate {
@@ -22,7 +23,8 @@ export class ExchangeRateController {
   private readonly logger = new Logger(ExchangeRateController.name);
   constructor(private readonly exchangeRateService: ExchangeRateService) { }
 
-
+  //Monday to Friday at 9:30am
+  @Cron('0 30 9 * * 1-5')
   @Get('scrapper')
   async scrapeExchangeRates(): Promise<ExchangeRate[]> {
     this.logger.log('Démarrage du scraping');

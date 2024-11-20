@@ -29,6 +29,7 @@
     "@nestjs/mongoose": "^10.1.0",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.4.8",
+    "@nestjs/schedule": "^4.1.1",
     "@ntegral/nestjs-sendgrid": "^1.0.0",
     "@sendgrid/mail": "^8.1.4",
     "@types/bcrypt": "^5.0.2",
