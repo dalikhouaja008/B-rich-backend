@@ -1,17 +1,28 @@
 import { CreateExchangeRateDto } from './dto/create-exchange-rate.dto';
 import { UpdateExchangeRateDto } from './dto/update-exchange-rate.dto';
 import { Injectable, Logger } from '@nestjs/common';
+import { ExchangeRate } from './entities/exchange-rate.entity';
+import { Model } from 'mongoose';
+import { InjectModel } from '@nestjs/mongoose';
 
 @Injectable()
 export class ExchangeRateService {
 
+  constructor(@InjectModel(ExchangeRate.name) private exchangeModel: Model<ExchangeRate>) { }
 
-  create(createExchangeRateDto: CreateExchangeRateDto) {
-    return 'This action adds a new exchangeRate';
+
+  /*async createExchangeRates(exchangeRates: CreateExchangeRateDto[]): Promise<ExchangeRate[]> {
+    const createdRates = await this.exchangeModel.insertMany(exchangeRates);
+    return createdRates;
+  }*/
+
+  async create(exchangeRateData): Promise<ExchangeRate> {
+    const createdExchangeRate = new this.exchangeModel(exchangeRateData);
+    return createdExchangeRate.save();
   }
 
-  findAll() {
-    return `This action returns all exchangeRate`;
+  async findAll(): Promise<ExchangeRate[]> {
+    return this.exchangeModel.find().exec();
   }
 
   findOne(id: number) {
@@ -25,7 +36,7 @@ export class ExchangeRateService {
   remove(id: number) {
     return `This action removes a #${id} exchangeRate`;
   }
- 
+
 
 }
 

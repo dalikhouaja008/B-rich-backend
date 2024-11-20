@@ -3,16 +3,17 @@ import { ExchangeRateService } from './exchange-rate.service';
 import { CreateExchangeRateDto } from './dto/create-exchange-rate.dto';
 import { UpdateExchangeRateDto } from './dto/update-exchange-rate.dto';
 import * as puppeteer from 'puppeteer';
+import { ExchangeRate } from './entities/exchange-rate.entity';
+//import { ExchangeRate } from './entities/exchange-rate.entity';
 
-
-interface ExchangeRate {
+/*interface ExchangeRate {
   designation: string;
   code: string;
   unit: string;
   buyingRate: string;
   sellingRate: string;
-}
-
+  date: Date;
+}*/
 
 
 @Controller('exchange-rate')
@@ -88,12 +89,14 @@ export class ExchangeRateController {
               unit: unit.toString(),
               buyingRate: buyingRate.toFixed(3),
               sellingRate: sellingRate.toFixed(3),
+              date: new Date().toISOString().split('T')[0],
             });
           } catch (error) {
             console.error('Erreur lors du traitement d\'une ligne:', error);
           }
         });
-
+        // Enregistrer chaque taux de change dans la base de données
+     
         return exchangeRates;
       });
 
@@ -102,6 +105,9 @@ export class ExchangeRateController {
       }
 
       this.logger.log(`Extraction réussie: ${rates.length} taux de change extraits`);
+      for (const rate of rates) {
+        await this.exchangeRateService.create(rate);
+    }
       return rates;
 
     } catch (error) {
@@ -118,13 +124,14 @@ export class ExchangeRateController {
       }
     }
   }
-  @Post()
+  
+  /*@Post()
   create(@Body() createExchangeRateDto: CreateExchangeRateDto) {
     return this.exchangeRateService.create(createExchangeRateDto);
-  }
+  }*/
 
   @Get()
-  findAll() {
+  async findAll():Promise<CreateExchangeRateDto[]> {
     return this.exchangeRateService.findAll();
   }
 
