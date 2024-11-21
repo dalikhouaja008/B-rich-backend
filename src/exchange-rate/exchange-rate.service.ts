@@ -22,7 +22,12 @@ export class ExchangeRateService {
   }
 
   async findAll(): Promise<ExchangeRate[]> {
-    return this.exchangeModel.find().exec();
+    return this.exchangeModel.find({
+      date: {
+        $gte: new Date().setHours(0, 0, 0, 0),
+        $lt: new Date().setHours(24, 0, 0, 0)
+      }
+    }).exec();
   }
 
   findOne(id: number) {
@@ -37,6 +42,19 @@ export class ExchangeRateService {
     return `This action removes a #${id} exchangeRate`;
   }
 
+
+
+
+  convertCurrency(amount: number, fromCurrency: string, toCurrency: string, rates: Record<string, number>): number {
+    const usdAmount = amount / rates[fromCurrency];
+    return usdAmount * rates[toCurrency];
+  }
+
+
+  /*async findSellingRateByUnit(unit: string): Promise<string | null> {
+    const exchangeRate = await this.exchangeModel.findOne({ unit }).select('sellingRate').exec();
+    return exchangeRate ? exchangeRate.sellingRate : null; 
+}*/
 
 }
 

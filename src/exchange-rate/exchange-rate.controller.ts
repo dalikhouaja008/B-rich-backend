@@ -108,6 +108,7 @@ export class ExchangeRateController {
 
       this.logger.log(`Extraction réussie: ${rates.length} taux de change extraits`);
       for (const rate of rates) {
+        this.logger.log(`added data`);
         await this.exchangeRateService.create(rate);
     }
       return rates;
