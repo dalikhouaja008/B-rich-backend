@@ -6,7 +6,9 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RolesModule } from './roles/roles.module';
+import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
 import config from './config/config';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import config from './config/config';
     }),
     AuthModule,
     RolesModule,
+    ExchangeRateModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
   providers: [AppService],
