@@ -12,7 +12,8 @@ export class ExchangeRateService {
 
 
   /*async createExchangeRates(exchangeRates: CreateExchangeRateDto[]): Promise<ExchangeRate[]> {
-    const createdRates = await this.exchangeModel.insertMany(exchangeRates);
+    const createdRates = await this.exchangeModel.insertMany(exchan
+      geRates);
     return createdRates;
   }*/
 
@@ -29,6 +30,62 @@ export class ExchangeRateService {
       }
     }).exec();
   }
+  async findRateByCurrency(currency: string): Promise<ExchangeRate> {
+    // Définir la date de début et de fin pour la recherche
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0); // Début de la journée
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999); // Fin de la journée
+    try {
+        // Rechercher le taux de change dans la base de données
+        const exchangeRate = await this.exchangeModel.findOne({
+            date: {
+                $gte: startOfDay,
+                $lt: endOfDay
+            },
+            code: currency
+        }).exec();
+
+        return exchangeRate;
+    } catch (error) {
+        console.error('Erreur lors de la récupération du taux de change:', error);
+        throw new Error('Impossible de récupérer le taux de change.');
+    }
+}
+
+async getConvertedAmountfromTNDtoOtherCurrency(amount: number, currency: string): Promise<Number> {
+  try {
+      // Récupérer le taux de change pour la devise spécifiée
+      const exchangeRate = await this.findRateByCurrency(currency);
+      if (!exchangeRate) {
+          throw new Error(`Taux de change non trouvé pour la devise: ${currency}`);
+      }
+      // Calculer le montant converti
+      const convertedAmount = amount * Number(exchangeRate.unit) /  Number( exchangeRate.sellingRate); 
+
+      return convertedAmount;
+  } catch (error) {
+      console.error('Erreur lors de la conversion du montant:', error);
+      throw new Error('Impossible de convertir le montant.');
+  }
+}
+
+async getConvertedAmountFromOtherCurrencyToTND(amount: number, currency: string): Promise<Number> {
+  try {
+      // Récupérer le taux de change pour la devise spécifiée
+      const exchangeRate = await this.findRateByCurrency(currency);
+      if (!exchangeRate) {
+          throw new Error(`Taux de change non trouvé pour la devise: ${currency}`);
+      }
+      // Calculer le montant converti
+      const convertedAmount = amount * Number(exchangeRate.buyingRate) /  Number( exchangeRate.unit); 
+      return convertedAmount;
+  } catch (error) {
+      console.error('Erreur lors de la conversion du montant:', error);
+      throw new Error('Impossible de convertir le montant.');
+  }
+}
+
 
   findOne(id: number) {
     return `This action returns a #${id} exchangeRate`;

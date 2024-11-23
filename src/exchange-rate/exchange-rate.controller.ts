@@ -132,6 +132,22 @@ export class ExchangeRateController {
   create(@Body() createExchangeRateDto: CreateExchangeRateDto) {
     return this.exchangeRateService.create(createExchangeRateDto);
   }*/
+@Get('sellingRate/:currency/:amount')
+  async CalculateSellingRate(@Param('currency') currency: string,@Param('amount') amount:String): Promise<Number> {
+
+    const numericAmount =Number(amount);
+    if(isNaN(numericAmount)){
+      throw new Error('Amount must be a number');
+    }
+
+    return this.exchangeRateService.getConvertedAmountfromTNDtoOtherCurrency(numericAmount,currency);
+  }
+  @Get('buyingRate/:currency/:amount')
+  async calculateBuyingRate(@Param('currency') currency: string,@Param('amount') amount:number): Promise<Number> {
+    return this.exchangeRateService.getConvertedAmountFromOtherCurrencyToTND(amount,currency);
+  }
+
+
 
   @Get()
   async findAll():Promise<CreateExchangeRateDto[]> {
@@ -152,9 +168,6 @@ export class ExchangeRateController {
   remove(@Param('id') id: string) {
     return this.exchangeRateService.remove(+id);
   }
-
-
-
 
 
 }
