@@ -9,6 +9,7 @@ import { RolesModule } from './roles/roles.module';
 import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
 import config from './config/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { PredictionModule } from './prediction/prediction.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     RolesModule,
     ExchangeRateModule,
     ScheduleModule.forRoot(),
+    PredictionModule,
   ],
   controllers: [AppController],
   providers: [AppService],
