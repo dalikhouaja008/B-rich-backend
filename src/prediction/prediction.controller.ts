@@ -4,22 +4,18 @@ import { CreatePredictionDto } from './dto/create-prediction.dto';
 import { UpdatePredictionDto } from './dto/update-prediction.dto';
 
 
-export interface DatePredictionInput {
-  day: number;
-  month: number;
-  year: number;
-}
 
-export interface PredictionResult {
-  predicted_value: number;
-}
+
 @Controller('prediction')
 export class PredictionController {
   constructor(private readonly predictionService: PredictionService) {}
 
   @Post('/create-prediction')
-  async predict(@Body() inputData: DatePredictionInput): Promise<PredictionResult> {
-    return await this.predictionService.predict(inputData);
+  async getPredictions(
+    @Body('date') date: string, 
+    @Body('currencies') currencies: string[]
+  ) {
+    return this.predictionService.getPredictions(date, currencies);
   }
 
   @Post()
