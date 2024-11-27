@@ -11,12 +11,11 @@ export class PredictionController {
   constructor(private readonly predictionService: PredictionService) {}
 
   @Post('/create-prediction')
-  async getPredictions(
-    @Body('date') date: string, 
-    @Body('currencies') currencies: string[]
-  ) {
-    return this.predictionService.getPredictions(date, currencies);
-  }
+async getPredictions(
+    @Body() body: { date: string; currencies: string[] }
+) {
+    return this.predictionService.getPredictions(body.date, body.currencies);
+}
 
   @Post()
   create(@Body() createPredictionDto: CreatePredictionDto) {
