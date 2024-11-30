@@ -10,6 +10,7 @@ import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
 import config from './config/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PredictionModule } from './prediction/prediction.module';
+import { SolanaModule } from './solana/solana.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { PredictionModule } from './prediction/prediction.module';
     ExchangeRateModule,
     ScheduleModule.forRoot(),
     PredictionModule,
+    SolanaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

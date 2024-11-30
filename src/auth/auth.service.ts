@@ -129,7 +129,6 @@ export class AuthService {
     }
     return this.generateUserTokens(token.userId);
   }
-
   async generateUserTokens(userId) {
     const accessToken = this.jwtService.sign({ userId }, { expiresIn: '10h' });
     const refreshToken = uuidv4();
@@ -265,6 +264,11 @@ export class AuthService {
       message: 'Mot de passe réinitialisé avec succès',
       user: user
     };
+  }
+
+  async validateUser(userId: string): Promise<any> {
+    const user = await this.UserModel.findById(userId).exec();
+    return user ? user : null;
   }
 }
 
