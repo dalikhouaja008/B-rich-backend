@@ -38,10 +38,27 @@ export class SolanaController {
       amount
     );
   }
-  @Post('/link-phantom')
+   // Convertir une devise
+   @Post('convert-currency')
+   @UseGuards(JwtAuthGuard)
+   async convertCurrency(
+     @Request() req,
+     @Body('amount') amount: number,
+     @Body('fromCurrency') fromCurrency: string,
+     @Body('phantomPublicKey') phantomPublicKey?: string
+   ) {
+     return this.solanaService.convertCurrency(
+       req.user.id, 
+       amount, 
+       fromCurrency,
+       phantomPublicKey
+     );
+   }
+  // Lier un wallet Phantom
+  @Post('link-phantom')
   @UseGuards(JwtAuthGuard)
   async linkPhantomWallet(
-    @Request() req,
+    @Request() req, 
     @Body('phantomPublicKey') phantomPublicKey: string
   ) {
     return this.solanaService.linkPhantomWallet(
@@ -49,6 +66,15 @@ export class SolanaController {
       phantomPublicKey
     );
   }
+
+
+    // Récupérer tous les wallets d'un utilisateur
+    @Get('my-wallets')
+    @UseGuards(JwtAuthGuard)
+    async getUserWallets(@Request() req) {
+      return this.solanaService.getUserWallets(req.user.id);
+    }
+
   @Post()
   create(@Body() createWalletDto: createWalletDto) {
     return this.solanaService.create(createWalletDto);

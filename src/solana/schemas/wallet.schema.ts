@@ -3,23 +3,28 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose, { Document } from 'mongoose';
 
 @Schema()
-export class Wallet extends Document {
-  @Prop({ type: String, required: true })
+export class Wallet {
+  @Prop() 
   userId: string;
-
-  @Prop({ required: true, unique: true })
+  @Prop()
   publicKey: string;
-
-  @Prop({ required: true, enum: ['devnet', 'testnet', 'mainnet'] })
-  network: string;
-
-  @Prop({ type: mongoose.Schema.Types.Decimal128, default: 0 })
+  @Prop({ 
+    enum: ['GENERATED', 'PHANTOM', 'IMPORTED'],
+    default: 'GENERATED'
+  })
+  type: string;
+  @Prop()
+  network: string; // 'mainnet', 'devnet', 'testnet'
+  @Prop()
   balance: number;
-
-  @Prop({ type: Date, default: Date.now })
+  @Prop({ default: Date.now })
   createdAt: Date;
-  @Prop({ type: Boolean, default: false })
-  isPhantomLinked: boolean;
+  @Prop()
+  currency?: string;
+  @Prop()
+  originalAmount?: number;
+  @Prop()
+  convertedAmount?: number;
 }
 
 export const WalletSchema = SchemaFactory.createForClass(Wallet);

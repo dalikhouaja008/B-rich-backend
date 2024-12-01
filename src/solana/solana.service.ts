@@ -21,29 +21,30 @@ export class SolanaService {
       'confirmed'
     );
   }
+ 
+  // Création d'un nouveau wallet
   async createWallet(createWalletDto: createWalletDto): Promise<Wallet> {
     try {
-      // Generate a new key pair
+      // Générer un nouveau keypair
       const keypair = web3.Keypair.generate();
       const publicKey = keypair.publicKey.toBase58();
-  
-      // Try to request airdrop
+
+      // Demander un airdrop
       try {
         await this.requestAirdrop(keypair.publicKey);
       } catch (airdropError) {
         this.logger.warn('Airdrop failed', airdropError);
       }
-  
-      // Create wallet with all required fields
+
+      // Créer le wallet
       const newWallet = new this.WalletModel({
-        id: undefined, // Let MongoDB generate
         userId: createWalletDto.userId,
         publicKey: publicKey,
-        network: 'devnet', // Explicitly set network
+        type: 'GENERATED',
+        network: 'devnet',
         balance: await this.getWalletBalance(keypair.publicKey)
       });
-  
-      // Save and return the wallet
+
       return await newWallet.save();
     } catch (error) {
       this.logger.error('Wallet creation error', error);
@@ -71,11 +72,9 @@ export class SolanaService {
     return balance / web3.LAMPORTS_PER_SOL;
   }
 
-  async findWalletsByUser(userId: string): Promise<Wallet[]> {
-    return this.WalletModel.find({ 
-      where: { userId },
-      order: { createdAt: 'DESC' }
-    });
+  // Récupérer tous les wallets d'un utilisateur
+  async getUserWallets(userId: string): Promise<Wallet[]> {
+    return this.WalletModel.find({ userId });
   }
   async syncWalletBalance(publicKey: string): Promise<Wallet> {
     const walletEntity = await this.WalletModel.findOne({
@@ -130,42 +129,96 @@ export class SolanaService {
     }
   }
 
-    // Permet de lier un wallet Phantom existant
-    async linkPhantomWallet(userId: string, phantomPublicKey: string) {
-      try {
-        const publicKey = new web3.PublicKey(phantomPublicKey);
-    
-        const existingWallet = await this.WalletModel.findOne({
-          publicKey: phantomPublicKey
-        });
-    
-        if (existingWallet) {
-          throw new ConflictException('Wallet already exists');
-        }
-    
-        const balance = await this.getWalletBalance(publicKey);
-    
-        const newLinkedWallet = new this.WalletModel({
-          userId,
-          publicKey: phantomPublicKey,
-          type: 'PHANTOM',
-          network: 'mainnet',
-          balance: balance
-        });
-    
-        return await newLinkedWallet.save();
-      } catch (error) {
-        // Gestion des erreurs de conversion de clé publique
-        if (error instanceof Error && error.message.includes('Invalid public key')) {
-          throw new BadRequestException('Invalid Phantom wallet public key');
-        }
-        throw error;
-      }
-    }
+  // Conversion de devise
+  async convertCurrency(
+    userId: string, 
+    amount: number, 
+    fromCurrency: string,
+    phantomPublicKey?: string
+  ): Promise<Wallet> {
+    try {
+      // Taux de change simulés
+      const exchangeRates = {
+        'EUR': 150, // 1 EUR = 150 SOL 
+        'USD': 130, // 1 USD = 130 SOL
+        'GBP': 170  // 1 GBP = 170 SOL
+      };
 
-    async getUserWallets(userId: string) {
-      return this.WalletModel.find({ userId });
+      // Vérification du taux de change
+      if (!exchangeRates[fromCurrency]) {
+        throw new BadRequestException('Devise non supportée');
+      }
+
+      // Calcul du montant converti
+      const convertedAmount = amount * exchangeRates[fromCurrency];
+
+      // Gestion du wallet
+      let wallet;
+      if (phantomPublicKey) {
+        // Utiliser un wallet Phantom existant
+        wallet = await this.linkPhantomWallet(userId, phantomPublicKey);
+      } else {
+        // Créer un nouveau wallet
+        wallet = await this.createWallet({ userId });
+      }
+
+      // Mise à jour du wallet avec les détails de conversion
+      wallet.currency = fromCurrency;
+      wallet.originalAmount = amount;
+      wallet.convertedAmount = convertedAmount;
+
+      // Demande d'airdrop
+      try {
+        await this.requestAirdrop(
+          new web3.PublicKey(wallet.publicKey), 
+          convertedAmount
+        );
+      } catch (airdropError) {
+        this.logger.warn('Airdrop partiel ou échoué', airdropError);
+      }
+
+      return await wallet.save();
+    } catch (error) {
+      this.logger.error('Erreur de conversion', error);
+      throw error;
     }
+  }
+
+    // Lier un wallet Phantom existant
+  async linkPhantomWallet(userId: string, phantomPublicKey: string): Promise<Wallet> {
+    try {
+      // Vérifier si le wallet existe déjà
+      const existingWallet = await this.WalletModel.findOne({
+        userId: userId,
+        publicKey: phantomPublicKey
+      });
+
+      if (existingWallet) {
+        throw new ConflictException('Ce wallet est déjà lié à votre compte');
+      }
+
+      // Vérifier la validité de la clé publique
+      const publicKey = new web3.PublicKey(phantomPublicKey);
+
+      // Récupérer le solde
+      const balance = await this.getWalletBalance(publicKey);
+
+      // Créer un nouveau wallet
+      const newWallet = new this.WalletModel({
+        userId: userId,
+        publicKey: phantomPublicKey,
+        type: 'PHANTOM',
+        network: 'devnet',
+        balance: balance
+      });
+
+      return await newWallet.save();
+    } catch (error) {
+      this.logger.error('Erreur de liaison de wallet', error);
+      throw error;
+    }
+  }
+
   create(createWalletDto: createWalletDto) {
     return 'This action adds a new solana';
   }
