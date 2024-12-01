@@ -11,9 +11,24 @@ import { ResetToken, ResetTokenSchema } from './schemas/reset-token.schema';
 import { MailService } from 'src/services/mail.service';
 import { RolesModule } from 'src/roles/roles.module';
 import { MailerModule } from '@nestjs-modules/mailer';
+import { PassportModule } from '@nestjs/passport';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtStrategy } from './jwt.strategy';
+import { JwtAuthGuard } from 'src/guards/jwtAuth.guard';
 
 @Module({
   imports: [
+    PassportModule.register({ defaultStrategy: 'jwt' }), 
+    PassportModule.register({ defaultStrategy: 'jwt' }), // Ajoutez cette ligne
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get('jwt.secret'),
+        signOptions: { expiresIn: '1h' },
+      }),
+      inject: [ConfigService],
+    }),
     RolesModule,
     MongooseModule.forFeature([
       {
@@ -44,7 +59,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, MailService],
-  exports: [AuthService],
+  providers: [AuthService, MailService,JwtStrategy, JwtAuthGuard],
+  exports: [AuthService,PassportModule,JwtModule, JwtStrategy, JwtAuthGuard],
 })
 export class AuthModule {}
