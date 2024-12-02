@@ -10,6 +10,8 @@ import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
 import config from './config/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PredictionModule } from './prediction/prediction.module';
+import { WalletModule } from './wallet/wallet.module';
+import { TransactionModule } from './transaction/transaction.module';
 
 @Module({
   imports: [
@@ -38,6 +40,8 @@ import { PredictionModule } from './prediction/prediction.module';
     ExchangeRateModule,
     ScheduleModule.forRoot(),
     PredictionModule,
+    WalletModule,
+    TransactionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

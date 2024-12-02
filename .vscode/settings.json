@@ -1,0 +1,8 @@
+{
+    "cSpell.enabled": false,
+    "cSpell.ignoreWords": [
+        "nestjs",
+        "sendgrid",
+        "dtos"
+    ]
+}
