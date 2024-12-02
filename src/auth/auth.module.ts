@@ -10,7 +10,6 @@ import {
 import { ResetToken, ResetTokenSchema } from './schemas/reset-token.schema';
 import { MailService } from 'src/services/mail.service';
 import { RolesModule } from 'src/roles/roles.module';
-import { MailerModule } from '@nestjs-modules/mailer';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -44,19 +43,19 @@ import { JwtAuthGuard } from 'src/guards/jwtAuth.guard';
         schema: ResetTokenSchema,
       },
     ]),
-    MailerModule.forRoot({
-      transport: {
-        host: process.env.MAIL_HOST,
-        port: parseInt(process.env.MAIL_PORT, 10),
-        auth: {
-          user: process.env.MAIL_USER,
-          pass: process.env.MAIL_PASSWORD,
-        },
-      },
-      defaults: {
-        from: '"No Reply" <noreply@example.com>',
-      },
-    }),
+    //MailerModule.forRoot({
+      //transport: {
+        //host: process.env.MAIL_HOST,
+        //port: parseInt(process.env.MAIL_PORT, 10),
+        //auth: {
+          //user: process.env.MAIL_USER,
+          //pass: process.env.MAIL_PASSWORD,
+        //},
+     // },
+      //defaults: {
+        //from: '"No Reply" <noreply@example.com>',
+      //},
+    //}),
   ],
   controllers: [AuthController],
   providers: [AuthService, MailService,JwtStrategy, JwtAuthGuard],

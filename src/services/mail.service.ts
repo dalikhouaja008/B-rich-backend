@@ -7,14 +7,36 @@ export class MailService {
 
   constructor() {
     this.transporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
+      host: process.env.MAIL_HOST,
+      port: parseInt(process.env.MAIL_PORT, 10),
+      secure: false,
       auth: {
-        user: 'theo.jacobson52@ethereal.email', // My Ethereal email
-        pass: 'CYjvhrBx9uhdAGayea', //My Ethereal password
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASSWORD,
       },
+      logger: true,
+      debug: true,
     });
+    
   }
+  async sendTestEmail(to: string): Promise<void> {
+    const mailOptions = {
+      from: '"Auth Backend" <no-reply@example.com>',
+      to,
+      subject: 'Test Email',
+      text: 'This is a test email from MailService',
+      html: '<p>This is a test email from MailService</p>',
+    };
+  
+    try {
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log(`Email sent: ${info.messageId}`);
+    } catch (error) {
+      console.error('Error sending test email:', error);
+      throw error;
+    }
+  }
+  
 
   // Envoyer objet mailOptions
   async sendMail(mailOptions: { to: string; subject: string; text: string; html: string }): Promise<void> {
