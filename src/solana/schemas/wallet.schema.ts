@@ -3,11 +3,13 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose, { Document } from 'mongoose';
 
 @Schema()
-export class Wallet {
+export class Wallet extends Document {
   @Prop() 
   userId: string;
   @Prop()
   publicKey: string;
+  @Prop()
+  privateKey?: string;
   @Prop({ 
     enum: ['GENERATED', 'PHANTOM', 'IMPORTED'],
     default: 'GENERATED'
