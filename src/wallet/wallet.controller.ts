@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { WalletService } from './wallet.service';
 
 @Controller('wallets')
@@ -16,8 +16,12 @@ export class WalletController {
     );
   }
 
-  @Get(':userId')
-  async getWallets(@Param('userId') userId: string) {
+  @Get()
+  async getUserWallets(@Req() req) {
+    if (!req.user) {
+      throw new Error('User is not authenticated');
+    }
+    const userId = req.user.userId;  // Ensure req.user is populated
     return this.walletService.getWalletsByUser(userId);
   }
 

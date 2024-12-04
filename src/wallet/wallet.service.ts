@@ -35,9 +35,9 @@ export class WalletService {
   
 
   async getWalletsByUser(userId: string) {
-    return this.walletModel.find({ owner: userId }).populate('owner');
+    return this.walletModel.find({ owner: userId }).populate('owner').populate('transactions');
   }
-
+  
   async getTransactions(walletId: string) {
     const wallet = await this.walletModel.findById(walletId);
     if (!wallet) {

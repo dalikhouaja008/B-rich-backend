@@ -12,27 +12,27 @@ export class TransactionService {
   ) {}
 
   async createTransaction(walletId: string, amount: number, type: 'credit' | 'debit') {
-    const wallet = await this.walletModel.findById(walletId);
+    const wallet = await this.walletModel.findById(walletId).populate('owner');
     if (!wallet) {
       throw new NotFoundException('Wallet not found');
     }
-
+  
     if (type === 'debit' && wallet.balance < amount) {
       throw new Error('Insufficient balance');
     }
-
+  
     wallet.balance += type === 'credit' ? amount : -amount;
     await wallet.save();
-
+  
     const transaction = await this.transactionModel.create({
       wallet: walletId,
       amount,
       type,
-      timestamp: new Date(),
     });
-
+  
     return transaction;
   }
+  
 
   async getTransactionsByWalletAndUser(walletId: string, userId: string) {
     return this.transactionModel.find({ wallet: walletId, user: userId }).exec();
