@@ -135,103 +135,53 @@ async createSolanaAccount(publicKey: web3.PublicKey, amount: number): Promise<st
 }
 
 async convertCurrency(
-  userId: string,
-  amount: number,
+  userId: string, 
+  amount: number, 
   fromCurrency: string
 ): Promise<Wallet> {
   try {
-    // Taux de change simulés vers SOL
+    // Fixed exchange rates
     const exchangeRates = {
-      'EUR': 150,  // 1 EUR = 150 SOL 
-      'USD': 130,  // 1 USD = 130 SOL
-      'GBP': 170   // 1 GBP = 170 SOL
+      'EUR': 0.001, // 1 EUR = 0.001 SOL 
+      'USD': 0.0005, // 1 USD = 0.0005 SOL
+      'GBP': 0.0008  // 1 GBP = 0.0008 SOL
     };
 
-    // Vérification du taux de change
+    // Validate currency support
     if (!exchangeRates[fromCurrency]) {
       throw new BadRequestException('Devise non supportée');
     }
 
-    // Calcul du montant converti en SOL
+    // Calculate converted amount
     const convertedAmount = amount * exchangeRates[fromCurrency];
 
-    // Chercher ou créer un wallet SOL
+    // Find existing wallet for the user and currency
     let wallet = await this.WalletModel.findOne({
       userId: userId,
-      currency: 'SOL',
+      currency: fromCurrency,
       type: 'GENERATED'
     });
 
-    if (!wallet) {
-      // Si aucun wallet SOL n'existe, créer un nouveau
+    if (wallet) {
+      // Update existing wallet balance
+      wallet.balance += convertedAmount;
+    } else {
+      // Create new wallet if none exists
       const keypair = web3.Keypair.generate();
       wallet = new this.WalletModel({
         userId: userId,
         publicKey: keypair.publicKey.toBase58(),
         type: 'GENERATED',
         network: 'devnet',
-        currency: 'SOL',
+        currency: fromCurrency,
         balance: convertedAmount,
         privateKey: this.encryptPrivateKey(keypair.secretKey)
       });
-    } else {
-      // Si un wallet SOL existe, mettre à jour le solde
-      wallet.balance += convertedAmount;
     }
 
-    // Mise à jour des détails de conversion
-    wallet.currency = fromCurrency;
-    wallet.originalAmount = (wallet.originalAmount || 0) + amount;
-    wallet.convertedAmount = (wallet.convertedAmount || 0) + convertedAmount;
-
-    // Enregistrer les modifications
-    return await wallet.save();
-  } catch (error) {
-    this.logger.error('Erreur de conversion', error);
-    throw error;
-  }
-}
-
-/*async convertCurrency(
-  userId: string, 
-  amount: number, 
-  fromCurrency: string,
-  phantomPublicKey?: string
-): Promise<Wallet> {
-  try {
-    // Taux de change simulés
-    const exchangeRates = {
-      'EUR': 150, // 1 EUR = 150 SOL 
-      'USD': 130, // 1 USD = 130 SOL
-      'GBP': 170  // 1 GBP = 170 SOL
-    };
-
-    // Vérification du taux de change
-    if (!exchangeRates[fromCurrency]) {
-      throw new BadRequestException('Devise non supportée');
-    }
-
-    // Calcul du montant converti
-    const convertedAmount = amount * exchangeRates[fromCurrency];
-
-    // Gestion du wallet
-    let wallet;
-    if (phantomPublicKey) {
-      // Utiliser un wallet Phantom existant
-      wallet = await this.linkPhantomWallet(userId, phantomPublicKey);
-    } else {
-      // Créer un nouveau wallet
-      wallet = await this.createWallet({ userId });
-    }
-
-    // Mise à jour du wallet avec les détails de conversion
-    wallet.currency = fromCurrency;
-    wallet.originalAmount = amount;
-    wallet.convertedAmount = convertedAmount;
-
-    // Demande d'airdrop
+    // Create Solana account and request airdrop
     try {
-      await this.requestAirdrop(
+      await this.createSolanaAccount(
         new web3.PublicKey(wallet.publicKey), 
         convertedAmount
       );
@@ -239,12 +189,17 @@ async convertCurrency(
       this.logger.warn('Airdrop partiel ou échoué', airdropError);
     }
 
-    return await wallet.save();
+    // Save wallet and sync balance
+    const savedWallet = await wallet.save();
+    await this.syncWalletBalanceInDatabase(savedWallet.publicKey);
+
+    return savedWallet;
   } catch (error) {
     this.logger.error('Erreur de conversion', error);
     throw error;
   }
-}*/
+}
+
 
 
 
@@ -462,25 +417,34 @@ async convertCurrency(
       throw new BadRequestException('Transaction failed due to an unexpected error');
     }
   }
-  async syncWalletBalanceInDatabase(publicKey: string): Promise<number> {
-    try {
-      const publicKeyObj = new web3.PublicKey(publicKey);
-      const networkBalance = await this.connection.getBalance(publicKeyObj);
-      const balanceInSOL = networkBalance / web3.LAMPORTS_PER_SOL;
-  
-      const wallet = await this.WalletModel.findOne({ publicKey });
-      if (wallet) {
-        wallet.balance = balanceInSOL;
-        await wallet.save();
-        this.logger.log(`Synchronized wallet ${publicKey} balance to ${balanceInSOL} SOL`);
-      }
-  
-      return balanceInSOL;
-    } catch (error) {
-      this.logger.error('Failed to sync wallet balance', error);
-      throw error;
+async syncWalletBalanceInDatabase(publicKey: string): Promise<number> {
+  try {
+    const publicKeyObj = new web3.PublicKey(publicKey);
+    
+    // Récupérer le solde directement de la blockchain
+    const networkBalance = await this.connection.getBalance(publicKeyObj);
+    const balanceInSOL = networkBalance / web3.LAMPORTS_PER_SOL;
+
+    // Trouver et mettre à jour le wallet
+    const wallet = await this.WalletModel.findOne({ publicKey });
+    if (wallet) {
+      // Mettre à jour avec le solde exact de la blockchain
+      wallet.balance = balanceInSOL;
+      await wallet.save();
+
+      this.logger.log(`Synchronisation blockchain réussie. Nouveau solde: ${balanceInSOL} SOL`);
     }
+
+    return balanceInSOL;
+  } catch (error) {
+    this.logger.error('Échec de synchronisation blockchain', {
+      publicKey,
+      errorMessage: error.message,
+      errorStack: error.stack
+    });
+    throw error;
   }
+}
   create(createWalletDto: createWalletDto) {
     return 'This action adds a new solana';
   }
