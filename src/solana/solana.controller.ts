@@ -9,32 +9,39 @@ import { JwtAuthGuard } from 'src/guards/jwtAuth.guard';
 export class SolanaController {
   constructor(private readonly solanaService: SolanaService) {}
 
-  @Post('create-wallet')
-  @UseGuards(JwtAuthGuard) // Protection par authentification
-  async createWallet(@Request() req) {
-    const createWalletDto: createWalletDto = {
-      userId: req.user.id // Récupérer l'ID de l'utilisateur connecté
-    };
-    return this.solanaService.createWallet(createWalletDto);
+  @Post('create-currency-wallet')
+  @UseGuards(JwtAuthGuard)
+  async createCurrencyWallet(
+    @Request() req,
+    @Body('currency') currency: string,
+    @Body('amount') amount: number
+  ) {
+    return this.solanaService.createCurrencyWallet(
+      { userId: req.user.id }, 
+      currency, 
+      amount
+    );
   }
 
 
   @Get('wallet/:publicKey/balance')
-  async getWalletBalance(@Param('publicKey') publicKey: string) {
-    return this.solanaService.syncWalletBalance(publicKey);
+  @UseGuards(JwtAuthGuard)
+  async getWalletBalance(@Request() req,@Param('publicKey') publicKey: string) {
+    return this.solanaService.syncWalletBalances(req.user.id, publicKey);
   }
 
-  @Post('send-transaction')
-  async sendTransaction(
-    @Body('fromPublicKey') fromPublicKey: string,
-    @Body('fromSecretKey') fromSecretKey: Uint8Array,
-    @Body('toPublicKey') toPublicKey: string,
+  @Post('transfer-between-wallets')
+  @UseGuards(JwtAuthGuard)
+  async transferBetweenWallets(
+    @Request() req,
+    @Body('fromWalletPublicKey') fromWalletPublicKey: string,
+    @Body('toWalletPublicKey') toWalletPublicKey: string,
     @Body('amount') amount: number
   ) {
-    return this.solanaService.sendTransaction(
-      fromPublicKey, 
-      fromSecretKey, 
-      toPublicKey, 
+    return this.solanaService.transferBetweenWallets(
+      req.user.id,
+      fromWalletPublicKey,
+      toWalletPublicKey,
       amount
     );
   }
@@ -44,18 +51,16 @@ export class SolanaController {
    async convertCurrency(
      @Request() req,
      @Body('amount') amount: number,
-     @Body('fromCurrency') fromCurrency: string,
-     @Body('phantomPublicKey') phantomPublicKey?: string
+     @Body('fromCurrency') fromCurrency: string
    ) {
      return this.solanaService.convertCurrency(
-       req.user.id, 
-       amount, 
-       fromCurrency,
-       phantomPublicKey
+       req.user.id,
+       amount,
+       fromCurrency
      );
    }
   // Lier un wallet Phantom
-  @Post('link-phantom')
+  /*@Post('link-phantom')
   @UseGuards(JwtAuthGuard)
   async linkPhantomWallet(
     @Request() req, 
@@ -65,7 +70,7 @@ export class SolanaController {
       req.user.id, 
       phantomPublicKey
     );
-  }
+  }*/
 
 
     // Récupérer tous les wallets d'un utilisateur

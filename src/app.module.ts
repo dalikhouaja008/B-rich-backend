@@ -11,6 +11,7 @@ import config from './config/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PredictionModule } from './prediction/prediction.module';
 import { SolanaModule } from './solana/solana.module';
+import { NewsModule } from './news/news.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { SolanaModule } from './solana/solana.module';
     ScheduleModule.forRoot(),
     PredictionModule,
     SolanaModule,
+    NewsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
