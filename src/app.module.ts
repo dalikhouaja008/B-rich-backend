@@ -12,6 +12,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { PredictionModule } from './prediction/prediction.module';
 import { SolanaModule } from './solana/solana.module';
 import { NewsModule } from './news/news.module';
+import { AccountsModule } from './accounts/accounts.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { NewsModule } from './news/news.module';
     PredictionModule,
     SolanaModule,
     NewsModule,
+    AccountsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
