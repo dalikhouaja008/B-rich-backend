@@ -197,20 +197,17 @@ export class AuthService {
     await resetToken.save();
 
     // 4. Envoyer l'email
-    await this.mailerService.sendMail({
-      to: email,
-      subject: 'Réinitialisation de mot de passe',
-      text: `Votre code de réinitialisation est: ${token}. Il expirera dans 15 minutes.`,
-      html: `
-        <p>Votre code de réinitialisation est: <strong>${token}</strong></p>
-        <p>Ce code expirera dans 15 minutes.</p>
-      `
-    });
+    //await this.mailerService.sendMail({
+      //to: email,
+      //subject: 'Réinitialisation de mot de passe',
+      //text: `Votre code de réinitialisation est: ${token}. Il expirera dans 15 minutes.`,
+      //html: `
+        //<p>Votre code de réinitialisation est: <strong>${token}</strong></p>
+        //<p>Ce code expirera dans 15 minutes.</p>});
 
-    return {
-      success: true,
-      message: 'Code de réinitialisation envoyé par email'
-    };
+   // return {
+     // success: true,
+      //message: 'Code de réinitialisation envoyé par email' };
   }
 
   async verifyCode(email: string, code: string) {
@@ -270,6 +267,11 @@ export class AuthService {
     const user = await this.UserModel.findById(userId).exec();
     return user ? user : null;
   }
+
+  async getUserWithAccounts(userId: string): Promise<User> {
+    return this.UserModel.findById(userId).populate('accounts').exec();
+  }
+  
 }
 
 

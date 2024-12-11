@@ -19,13 +19,14 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     console.log('JWT Payload:', payload);
 
     // Validation minimale
-    if (!payload || !payload.userId) {
+    if (!payload || !payload.userId || !payload.email) {
       console.warn('Invalid JWT payload');
       throw new UnauthorizedException('Invalid token');
     }
 
     return {
-      id: payload.userId, // Utilisez userId au lieu de sub
+      id: payload.userId,
+      email: payload.email // Utilisez userId au lieu de sub
     };
   }
 }

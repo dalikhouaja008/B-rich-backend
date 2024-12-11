@@ -30,7 +30,7 @@
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.4.8",
     "@nestjs/schedule": "^4.1.1",
-    "@ntegral/nestjs-sendgrid": "^1.0.0",
+    "@ntegral/nestjs-sendgrid": "^0.1.3",
     "@sendgrid/mail": "^8.1.4",
     "@solana/wallet-adapter-base": "^0.9.23",
     "@solana/wallet-adapter-react": "^0.15.35",

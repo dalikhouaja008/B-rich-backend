@@ -17,6 +17,13 @@ export class User extends Document {
 
   @Prop({ required: false, type: SchemaTypes.ObjectId })
   roleId: Types.ObjectId;
+
+  //@Prop({ type: [{ type: Types.ObjectId, ref: 'Account' }] })
+  //accounts: Types.ObjectId[]; // References to Account documents
+
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'Account' }] })
+  accounts: Types.ObjectId[]; // List of accounts associated with the user
+
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

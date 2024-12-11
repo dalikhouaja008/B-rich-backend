@@ -17,8 +17,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from 'src/guards/jwtAuth.guard';
 
 @Module({
-  imports: [
-    PassportModule.register({ defaultStrategy: 'jwt' }), 
+  imports: [ 
     PassportModule.register({ defaultStrategy: 'jwt' }), // Ajoutez cette ligne
     JwtModule.registerAsync({
       imports: [ConfigModule],

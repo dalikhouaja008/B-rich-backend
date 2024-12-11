@@ -39,16 +39,32 @@ export class MailService {
   
 
   // Envoyer objet mailOptions
-  async sendMail(mailOptions: { to: string; subject: string; text: string; html: string }): Promise<void> {
+  async sendMail(to: string, subject: string, text: string, html: string): Promise<void> {
+    const mailOptions = {
+      from: '"Your App Name" <your-email@gmail.com>', // Sender address
+      to, // Recipient address
+      subject, // Email subject
+      text, // Plain text body
+      html, // HTML body
+    };
+
     try {
-      await this.transporter.sendMail(mailOptions);
-      console.log(`Email envoyé à ${mailOptions.to}`);
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log(`Email sent: ${info.messageId}`);
     } catch (error) {
-      console.error('Erreur lors de l\'envoi de l\'email:', error);
-      throw new Error('Impossible d\'envoyer l\'email');
+      console.error('Error sending email:', error);
+      throw new Error('Email sending failed');
     }
   }
 
+
+  async sendOtpEmail(to: string, otp: string): Promise<void> {
+    const subject = 'Your OTP Code';
+    const text = `Your OTP code is: ${otp}`;
+    const html = `<p>Your OTP code is: <strong>${otp}</strong></p>`;
+
+    await this.sendMail(to, subject, text, html);
+  }
   async sendPasswordResetEmail(to: string, token: string): Promise<void> {
     const resetLink = `http://yourapp.com/reset-password?token=${token}`;
     const mailOptions = {
