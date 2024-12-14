@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
-
+import { Document , Types } from 'mongoose';
+import { User } from '../../auth/schemas/user.schema'; 
 // Define a TypeScript type for the Account document
 export type AccountDocument = Account & Document;
 
@@ -26,6 +26,9 @@ export class Account {
 
   @Prop({ required: true, type: Number, default: 0 })
   balance: number; // Account balance
+
+  @Prop({ type: Types.ObjectId, ref: 'User' }) // Reference to the User schema
+  user: Types.ObjectId; // Associated user
 }
 
 // Generate a Mongoose schema from the Account class

@@ -453,6 +453,36 @@ export class SolanaService {
       throw error;
     }
   }
+
+  async getTransactionsByWallet(walletAddress: string) {
+    const publicKey = new web3.PublicKey(walletAddress);
+    
+    const signatures = await this.connection.getSignaturesForAddress(publicKey, {
+      limit: 50, // Récupérer les 50 dernières transactions
+    });
+
+    const transactions = await Promise.all(
+      signatures.map(async (signature) => {
+        const transaction = await this.connection.getTransaction(signature.signature, {
+          maxSupportedTransactionVersion: 0
+        });
+
+        return {
+          signature: signature.signature,
+          blockTime: transaction.blockTime,
+          amount: transaction.meta.postBalances[0], //LAMPORTS_PER_SOL,
+          type: this.determineTransactionType(transaction)
+        };
+      })
+    );
+
+    return transactions;
+  }
+
+  private determineTransactionType(transaction: any): string {
+    // Logique simplifiée de détection de type
+    return 'transfer'; // Type par défaut
+  }
   create(createWalletDto: createWalletDto) {
     return 'This action adds a new solana';
   }
