@@ -6,29 +6,51 @@ export type AccountDocument = Account & Document;
 
 @Schema({ timestamps: true })
 export class Account {
-  @Prop({ required: true })
-  number: string; // Account number
+  save(): Account | PromiseLike<Account> {
+    throw new Error('Method not implemented.');
+  }
+  @Prop({ required: true, default: () => `ACC-${Date.now()}` })
+  number: string;
 
-  @Prop({ required: true })
-  type: string; // Type of the account (e.g., Savings, Checking)
+  @Prop({ required: true, enum: ['savings', 'checking', 'investment'], default: 'checking' })
+  type: string;
 
-  @Prop({ required: false, default: null })
-  nickname: string | null; // Account nickname
+  @Prop({ default: null })
+  nickname: string;
 
-  @Prop({ required: true, enum: ['active', 'inactive'] })
-  status: string; // Account status (e.g., Active, Inactive)
+  @Prop({ 
+    required: true, 
+    enum: ['active', 'inactive'], 
+    default: 'active' 
+  })
+  status: string;
 
   @Prop({ required: true, unique: true })
-  rib: string; // Bank Identifier (RIB)
+  rib: string;
 
   @Prop({ default: false })
-  isDefault: boolean; // Whether this is the default account
+  isDefault: boolean;
 
-  @Prop({ required: true, type: Number, default: 0 })
-  balance: number; // Account balance
+  @Prop({ 
+    type: Number, 
+    default: 0, 
+    min: 0 // Ensure balance is never negative
+  })
+  balance: number;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
-  user: Types.ObjectId; // Reference to User
+  @Prop({ 
+    required: true, 
+    enum: ['TND', 'USD'], 
+    default: 'TND' 
+  })
+  currency: string;
+
+  @Prop({ 
+    type: Types.ObjectId, 
+    ref: 'User', 
+    required: true 
+  })
+  user: Types.ObjectId;
 }
 
 export const AccountSchema = SchemaFactory.createForClass(Account);

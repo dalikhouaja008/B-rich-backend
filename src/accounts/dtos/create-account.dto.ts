@@ -1,17 +1,21 @@
-import { IsString, IsBoolean, IsNumber, IsOptional, IsNotEmpty } from 'class-validator';
+import { IsString, IsBoolean, IsNumber, IsOptional, IsNotEmpty, IsEnum } from 'class-validator';
+import { Types } from 'mongoose';
 
 export class CreateAccountDto {
+  @IsOptional()
   @IsString()
-  number: string;
+  number?: string;
 
   @IsString()
+  @IsEnum(['savings', 'checking', 'investment'])
   type: string;
 
   @IsOptional()
   @IsString()
-  nickname: string;
+  nickname?: string;
 
   @IsString()
+  @IsEnum(['active', 'inactive'])
   status: string;
 
   @IsString()
@@ -19,11 +23,18 @@ export class CreateAccountDto {
   rib: string;
 
   @IsBoolean()
-  isDefault: boolean;
+  @IsOptional()
+  isDefault?: boolean = false;
 
   @IsNumber()
-  balance: number;
+  @IsOptional()
+  balance?: number = 0;
+
+  @IsOptional()
+  @IsEnum(['TND', 'USD'])
+  currency?: string = 'TND';
 
   @IsString()
+  @IsNotEmpty()
   user: string;
 }

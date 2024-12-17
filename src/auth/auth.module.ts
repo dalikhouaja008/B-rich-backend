@@ -21,7 +21,7 @@ import { UsersService } from './users.service';
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }), 
-    PassportModule.register({ defaultStrategy: 'jwt' }), // Ajoutez cette ligne
+    //PassportModule.register({ defaultStrategy: 'jwt' }), // Ajoutez cette ligne
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

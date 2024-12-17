@@ -1,8 +1,12 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import mongoose, { Document, Types } from 'mongoose';
+import { Wallet } from 'src/solana/schemas/wallet.schema';
 
 @Schema()
 export class User extends Document {
+  static findOne(arg0: { where: { id: string; }; }) {
+    throw new Error('Method not implemented.');
+  }
   @Prop({ required: true })
   name: string;
 
@@ -21,6 +25,10 @@ export class User extends Document {
   @Prop({ required: false, type: Types.ObjectId })
   roleId: Types.ObjectId;
   wallet: any;
+
+  @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Wallet' }] })
+  wallets: Wallet[];
+
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

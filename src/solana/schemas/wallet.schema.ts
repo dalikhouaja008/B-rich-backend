@@ -4,6 +4,9 @@ import mongoose, { Document } from 'mongoose';
 
 @Schema()
 export class Wallet extends Document {
+  static find(arg0: { where: { userId: string; }; }) {
+    throw new Error('Method not implemented.');
+  }
   @Prop() 
   userId: string;
   @Prop()

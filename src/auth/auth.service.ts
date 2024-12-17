@@ -264,10 +264,20 @@ export class AuthService {
     };
   }
 
+  /*
   async validateUser(userId: string): Promise<any> {
     const user = await this.UserModel.findById(userId).exec();
     return user ? user : null;
-  }
+  }*/
+
+    async validateUser(email: string, password: string): Promise<User | null> {
+      const user = await this.UserModel.findOne({ email }).exec();
+      if (user && user.password === password) {
+        return user;
+      }
+      throw new UnauthorizedException('Invalid credentials');
+    }
+  
 }
 
 

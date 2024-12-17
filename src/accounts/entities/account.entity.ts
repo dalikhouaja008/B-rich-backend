@@ -28,6 +28,9 @@ export class Account {
   @Prop({ required: true, type: Number, default: 0 })
   balance: number; // Account balance
 
+  @Prop({ default: 'TND', type: String })
+  currency: string;
+
   //relation avec user
   @Prop({ type: Types.ObjectId, ref: 'User' })
   user: User;

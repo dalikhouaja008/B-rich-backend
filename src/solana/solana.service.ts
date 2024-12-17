@@ -6,15 +6,10 @@ import { Wallet } from './schemas/wallet.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as crypto from 'crypto';
+import { User } from 'src/auth/schemas/user.schema';
 
 @Injectable()
 export class SolanaService {
-  getWalletsForUser(id: any) {
-    throw new Error('Method not implemented.');
-  }
-  findUserById(userId: string) {
-    throw new Error('Method not implemented.');
-  }
   private readonly logger = new Logger(SolanaService.name);
   private connection: web3.Connection;
   private readonly ENCRYPTION_KEY: Buffer;
@@ -221,8 +216,26 @@ export class SolanaService {
     }
   }
   async getWalletBalance(publicKey: web3.PublicKey): Promise<number> {
-    const balance = await this.connection.getBalance(publicKey);
-    return balance / web3.LAMPORTS_PER_SOL;
+    try {
+      // Get balance directly from the Solana network
+      const balanceInLamports = await this.connection.getBalance(publicKey);
+      const balanceInSOL = balanceInLamports / web3.LAMPORTS_PER_SOL;
+
+      this.logger.log(`Network Balance for ${publicKey.toBase58()}: ${balanceInSOL} SOL`);
+
+      // Update the wallet's balance in the database
+      const wallet = await this.WalletModel.findOne({ publicKey: publicKey.toBase58() });
+      if (wallet) {
+        wallet.balance = balanceInSOL;
+        await wallet.save();
+        this.logger.log(`Updated wallet balance in database to ${balanceInSOL} SOL`);
+      }
+
+      return balanceInSOL;
+    } catch (error) {
+      this.logger.error(`Failed to get balance for ${publicKey.toBase58()}`, error);
+      throw error;
+    }
   }
 
   // Récupérer tous les wallets d'un utilisateur
@@ -441,6 +454,36 @@ export class SolanaService {
       throw error;
     }
   }
+
+  async getTransactionsByWallet(walletAddress: string) {
+    const publicKey = new web3.PublicKey(walletAddress);
+    
+    const signatures = await this.connection.getSignaturesForAddress(publicKey, {
+      limit: 50, // Récupérer les 50 dernières transactions
+    });
+
+    const transactions = await Promise.all(
+      signatures.map(async (signature) => {
+        const transaction = await this.connection.getTransaction(signature.signature, {
+          maxSupportedTransactionVersion: 0
+        });
+
+        return {
+          signature: signature.signature,
+          blockTime: transaction.blockTime,
+          amount: transaction.meta.postBalances[0], //LAMPORTS_PER_SOL,
+          type: this.determineTransactionType(transaction)
+        };
+      })
+    );
+
+    return transactions;
+  }
+
+  private determineTransactionType(transaction: any): string {
+    // Logique simplifiée de détection de type
+    return 'transfer'; // Type par défaut
+  }
   create(createWalletDto: createWalletDto) {
     return 'This action adds a new solana';
   }
@@ -460,8 +503,20 @@ export class SolanaService {
   remove(id: number) {
     return `This action removes a #${id} solana`;
   }
+
+  async getUserById(userId: string): Promise<User | null> {
+    const user = await User.findOne({ where: { id: userId } }) as unknown as User | null;
+    return user || null;
+  }
+  
+  // Fetch wallets by user id
+  async getWalletsByUser(userId: string) {
+    // Logic to fetch wallets associated with the user
+    const wallets = await Wallet.find({ where: { userId } });
+    return wallets;
+  }
+
 }
 function InjectRepository(Wallet: any): (target: typeof SolanaService, propertyKey: undefined, parameterIndex: 0) => void {
   throw new Error('Function not implemented.');
 }
-
