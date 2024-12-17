@@ -30,10 +30,12 @@
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.4.8",
     "@nestjs/schedule": "^4.1.1",
+    "@nestjs/swagger": "^8.1.0",
     "@ntegral/nestjs-sendgrid": "^1.0.0",
     "@orca-so/sdk": "^1.2.26",
     "@project-serum/anchor": "^0.26.0",
     "@sendgrid/mail": "^8.1.4",
+    "@solana/spl-token-registry": "^0.2.4574",
     "@solana/wallet-adapter-base": "^0.9.23",
     "@solana/wallet-adapter-react": "^0.15.35",
     "@solana/wallet-adapter-react-ui": "^0.9.35",
@@ -56,6 +58,7 @@
     "puppeteer": "^23.8.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.2.0",
+    "swagger-ui-express": "^5.0.1",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
