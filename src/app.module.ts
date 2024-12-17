@@ -13,6 +13,7 @@ import { PredictionModule } from './prediction/prediction.module';
 import { SolanaModule } from './solana/solana.module';
 import { NewsModule } from './news/news.module';
 import { AccountsModule } from './accounts/accounts.module';
+import { OrcaModule } from './orca/orca.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { AccountsModule } from './accounts/accounts.module';
     SolanaModule,
     NewsModule,
     AccountsModule,
+    OrcaModule,
   ],
   controllers: [AppController],
   providers: [AppService],

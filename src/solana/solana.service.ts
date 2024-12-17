@@ -6,6 +6,7 @@ import { Wallet } from './schemas/wallet.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as crypto from 'crypto';
+import { getOrca } from '@orca-so/sdk';
 
 @Injectable()
 export class SolanaService {
@@ -13,6 +14,7 @@ export class SolanaService {
   private connection: web3.Connection;
   private readonly ENCRYPTION_KEY: Buffer;
   private readonly IV_LENGTH = 16;
+  private orca: ReturnType<typeof getOrca>;
 
   constructor(
     @InjectModel(Wallet.name) private WalletModel: Model<Wallet>,
@@ -23,12 +25,16 @@ export class SolanaService {
       web3.clusterApiUrl('devnet'),
       'confirmed'
     );
+      // Verify getOrca is imported and used correctly
+      this.orca = getOrca(this.connection);
+
     this.ENCRYPTION_KEY = encryptionKey
       ? Buffer.from(encryptionKey, 'hex')
       : crypto.scryptSync('your-secret-salt', 'salt', 32);
   }
+
   // Robust Encryption Method
-  private encryptPrivateKey(privateKey: Uint8Array): string {
+  public encryptPrivateKey(privateKey: Uint8Array): string {
     try {
       const iv = crypto.randomBytes(this.IV_LENGTH);
       const cipher = crypto.createCipheriv('aes-256-cbc', this.ENCRYPTION_KEY, iv);
@@ -41,7 +47,7 @@ export class SolanaService {
   }
 
   // Robust Decryption Method
-  private decryptPrivateKey(encryptedPrivateKey: string): Uint8Array {
+  public decryptPrivateKey(encryptedPrivateKey: string): Uint8Array {
     try {
       // Split IV and encrypted data
       const [ivHex, encryptedHex] = encryptedPrivateKey.split(':');
