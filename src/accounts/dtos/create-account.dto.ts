@@ -1,4 +1,5 @@
 import { IsString, IsEnum, IsNumber, IsOptional, IsBoolean, IsMongoId } from 'class-validator';
+import { Types } from 'mongoose';
 
 export enum AccountType {
   SAVINGS = 'savings',
@@ -6,22 +7,25 @@ export enum AccountType {
   INVESTMENT = 'investment'
 }
 
+
 export enum AccountStatus {
   ACTIVE = 'active',
   INACTIVE = 'inactive',
-  FROZEN = 'frozen'
+  BLOCKED = 'blocked'
 }
 
 export class CreateAccountDto {
   @IsString()
   accountNumber: string;
 
+  @IsOptional()
   @IsEnum(AccountType)
-  type: AccountType;
-
+  type?: AccountType;
+//type: string;
+  @IsOptional()
   @IsEnum(AccountStatus)
-  status: AccountStatus;
-
+  status?: AccountStatus;
+//status: string;
   @IsString()
   rib: string;
 
@@ -39,5 +43,5 @@ export class CreateAccountDto {
 
   @IsMongoId()
   @IsOptional()
-  userId?: string;
+  userId: Types.ObjectId;
 }

@@ -2,7 +2,11 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document , Types } from 'mongoose';
 import { User } from '../../auth/schemas/user.schema'; 
 // Define a TypeScript type for the Account document
+
+
 export type AccountDocument = Account & Document;
+
+
 
 @Schema({ timestamps: true }) // Automatically adds createdAt and updatedAt fields
 export class Account {
@@ -15,7 +19,7 @@ export class Account {
   @Prop({ required: false, default: null })
   nickname: string | null; // Account nickname
 
-  @Prop({ required: true, enum: ['active', 'inactive'] }) // Restrict status to specific values
+  @Prop({ required: true, enum: ['active', 'inactive'] ,set: (value: string) => value?.toLowerCase() }) // Restrict status to specific values
   status: string; // Account status (e.g., Active, Inactive)
 
   @Prop({ required: true, unique: true }) // Ensure RIB is unique
@@ -27,7 +31,7 @@ export class Account {
   @Prop({ required: true, type: Number, default: 0 })
   balance: number; // Account balance
 
-  @Prop({ type: Types.ObjectId, ref: 'User' }) // Reference to the User schema
+  @Prop({ type: Types.ObjectId, ref: 'User', required: false }) // Reference to the User schema
   user: Types.ObjectId; // Associated user
 }
 

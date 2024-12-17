@@ -19,7 +19,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     console.log('JWT Payload:', payload);
 
     // Validation minimale
-    if (!payload || !payload.userId || !payload.email) {
+    if (!payload || !payload.userId ) {
       console.warn('Invalid JWT payload');
       throw new UnauthorizedException('Invalid token');
     }
