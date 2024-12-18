@@ -7,6 +7,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as crypto from 'crypto';
 import { getOrca } from '@orca-so/sdk';
+import { ExchangeRateService } from 'src/exchange-rate/exchange-rate.service';
+import { Transaction } from './schemas/transaction.schema';
+import { User } from 'src/auth/schemas/user.schema';
 
 @Injectable()
 export class SolanaService {
@@ -18,6 +21,9 @@ export class SolanaService {
 
   constructor(
     @InjectModel(Wallet.name) private WalletModel: Model<Wallet>,
+    private readonly exchangeRateService: ExchangeRateService,
+    @InjectModel(Transaction.name) private TransactionModel: Model<Transaction>,
+    @InjectModel(User.name) private UserModel: Model<User>,
     @Optional() @Inject('ENCRYPTION_KEY') encryptionKey?: string
   ) {
     // Connect to devnet
@@ -25,8 +31,8 @@ export class SolanaService {
       web3.clusterApiUrl('devnet'),
       'confirmed'
     );
-      // Verify getOrca is imported and used correctly
-      this.orca = getOrca(this.connection);
+    // Verify getOrca is imported and used correctly
+    this.orca = getOrca(this.connection);
 
     this.ENCRYPTION_KEY = encryptionKey
       ? Buffer.from(encryptionKey, 'hex')
@@ -72,7 +78,124 @@ export class SolanaService {
       throw new Error(`Private key decryption failed: ${error.message}`);
     }
   }
+  async getUsersWithWalletsAndTransactions(
+    page: number = 1,
+    limit: number = 10,
+    userId?: string
+  ): Promise<any> {
+    try {
+      const skip = (page - 1) * limit;
+      let query = {};
 
+      if (userId) {
+        query = { _id: userId };
+      }
+
+      // Récupérer les utilisateurs
+      const users = await this.UserModel
+        .find(query)
+        .skip(skip)
+        .limit(limit)
+        .select('-password')
+        .lean();
+
+      // Récupérer les détails pour chaque utilisateur
+      const usersWithDetails = await Promise.all(
+        users.map(async (user) => {
+          // Récupérer tous les wallets de l'utilisateur
+          const wallets = await this.WalletModel
+            .find({ userId: user._id })
+            .lean();
+
+          // Récupérer les transactions pour chaque wallet
+          const walletsWithTransactions = await Promise.all(
+            wallets.map(async (wallet) => {
+              const transactions = await this.TransactionModel
+                .find({
+                  $or: [
+                    { fromAddress: wallet.publicKey },
+                    { toAddress: wallet.publicKey }
+                  ]
+                })
+                .sort({ blockTime: -1 })
+                .lean();
+
+              return {
+                ...wallet,
+                transactions
+              };
+            })
+          );
+
+          return {
+            user: {
+              id: user._id,
+              email: user.email,
+              username: user.name,
+            },
+            wallets: walletsWithTransactions
+          };
+        })
+      );
+
+      // Compter le total des utilisateurs pour la pagination
+      const total = await this.UserModel.countDocuments(query);
+
+      return {
+        success: true,
+        data: {
+          users: usersWithDetails,
+          pagination: {
+            current: page,
+            limit,
+            total,
+            pages: Math.ceil(total / limit)
+          }
+        }
+      };
+
+    } catch (error) {
+      this.logger.error('Error fetching users with wallets and transactions:', error);
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  //créer wallet en TND
+  async createTNDWallet(createWalletDto: createWalletDto, amount: number): Promise<Wallet> {
+    try {
+      const DEFAULT_CURRENCY = 'TND';
+
+      // Vérifier si un wallet TND existe déjà pour cet utilisateur
+      let existingWallet = await this.WalletModel.findOne({
+        userId: createWalletDto.userId,
+        currency: DEFAULT_CURRENCY,
+        type: 'GENERATED'
+      });
+
+      if (existingWallet) {
+        // Si le wallet existe, mettre à jour uniquement l'originalAmount
+        existingWallet.originalAmount = (existingWallet.originalAmount || 0) + amount;
+        return await existingWallet.save();
+      }
+
+      // Si aucun wallet n'existe, créer un nouveau wallet TND
+      const newWallet = new this.WalletModel({
+        userId: createWalletDto.userId,
+        type: 'GENERATED',
+        network: 'devnet',
+        currency: DEFAULT_CURRENCY,
+        originalAmount: amount,
+        balance: 0,
+        createdAt: new Date()
+      });
+
+      return await newWallet.save();
+
+    } catch (error) {
+      this.logger.error('TND wallet creation/update error', error);
+      throw new BadRequestException('Failed to create or update TND wallet');
+    }
+  }
   // Création d'un nouveau wallet
   async createCurrencyWallet(createWalletDto: createWalletDto, currency: string, amount: number): Promise<Wallet> {
     try {
@@ -152,7 +275,32 @@ export class SolanaService {
       if (!exchangeRates[fromCurrency]) {
         throw new BadRequestException('Devise non supportée');
       }
+      // First, convert the amount to TND
+      const amountInTND = await this.exchangeRateService.getConvertedAmountFromOtherCurrencyToTND(
+        amount,
+        fromCurrency
+      );
+      // Find TND wallet
+      const tndWallet = await this.WalletModel.findOne({
+        userId: userId,
+        currency: 'TND',
+        type: 'GENERATED'
+      });
 
+      // Check if TND wallet exists and has sufficient balance
+      if (!tndWallet) {
+        throw new BadRequestException('Wallet en Dinars non trouvé');
+      }
+
+      // Après la modification (correction)
+      const currentBalance = Number(tndWallet.originalAmount || 0);
+      const requiredAmount = Number(amountInTND);
+
+      if (currentBalance < requiredAmount) {
+        throw new BadRequestException(
+          `Solde insuffisant en Dinars. Solde actuel: ${currentBalance} TND, Montant nécessaire: ${requiredAmount} TND`
+        );
+      }
       // Calculate converted amount
       const convertedAmount = amount * exchangeRates[fromCurrency];
 
@@ -182,6 +330,10 @@ export class SolanaService {
           privateKey: this.encryptPrivateKey(keypair.secretKey)
         });
       }
+
+      // Update TND wallet balance
+      tndWallet.originalAmount -= Number(amountInTND);
+      await tndWallet.save();
 
       // Create Solana account and request airdrop
       try {
@@ -259,6 +411,174 @@ export class SolanaService {
       this.logger.log(`Synced To Wallet Balance: ${toBalance} SOL`);
     } catch (error) {
       this.logger.error('Failed to sync wallet balances', error);
+    }
+  }
+  async syncWalletTransactions(walletPublicKey: string, userId: string): Promise<any> {
+    try {
+      const publicKey = new web3.PublicKey(walletPublicKey);
+      
+      const wallet = await this.WalletModel.findOne({ 
+        userId: userId,
+        publicKey: walletPublicKey 
+      });
+
+      if (!wallet) {
+        throw new BadRequestException('Wallet not found');
+      }
+
+      const signatures = await this.connection.getSignaturesForAddress(
+        publicKey,
+        { limit: 100 }
+      );
+
+      const transactions = [];
+
+      for (const signatureInfo of signatures) {
+        try {
+          const transaction = await this.connection.getTransaction(
+            signatureInfo.signature,
+            {
+              maxSupportedTransactionVersion: 0
+            }
+          );
+
+          if (transaction) {
+            // Extraction sécurisée des adresses
+            let fromAddress = '';
+            let toAddress = '';
+
+            try {
+              // Obtenir les comptes de manière sûre
+              const accounts = transaction.transaction.message.staticAccountKeys ||
+                             transaction.transaction.message.getAccountKeys ||
+                             [];
+
+              fromAddress = accounts[0]?.toBase58() || '';
+              toAddress = accounts[1]?.toBase58() || '';
+            } catch (accountError) {
+              this.logger.warn('Error extracting accounts from transaction', accountError);
+            }
+
+            const transactionData = {
+              signature: signatureInfo.signature,
+              walletPublicKey,
+              userId,
+              fromAddress,
+              toAddress,
+              amount: (transaction.meta.postBalances[0] - transaction.meta.preBalances[0]) / web3.LAMPORTS_PER_SOL,
+              blockTime: transaction.blockTime,
+              status: transaction.meta.err ? 'failed' : 'success',
+              type: this.determineTransactionType(transaction),
+              timestamp: new Date(transaction.blockTime * 1000), // Convertir en timestamp
+              fee: transaction.meta.fee / web3.LAMPORTS_PER_SOL
+            };
+
+            transactions.push(transactionData);
+
+            // Sauvegarder dans la base de données
+            await this.TransactionModel.findOneAndUpdate(
+              { signature: transactionData.signature },
+              transactionData,
+              { upsert: true, new: true }
+            );
+          }
+        } catch (error) {
+          this.logger.error(`Error processing transaction ${signatureInfo.signature}:`, error);
+          continue;
+        }
+      }
+
+      // Mettre à jour le solde du wallet
+      const currentBalance = await this.connection.getBalance(publicKey);
+      await this.WalletModel.findOneAndUpdate(
+        { publicKey: walletPublicKey },
+        { balance: currentBalance / web3.LAMPORTS_PER_SOL },
+        { new: true }
+      );
+
+      return {
+        success: true,
+        message: `Synchronized ${transactions.length} transactions`,
+        transactions,
+        currentBalance: currentBalance / web3.LAMPORTS_PER_SOL
+      };
+
+    } catch (error) {
+      this.logger.error('Error syncing wallet transactions:', error);
+      throw new BadRequestException(error.message);
+    }
+  }
+  private getTransactionAccounts(transaction: any): web3.PublicKey[] {
+    try {
+      if (transaction.transaction.message.getAccountKeys) {
+        return transaction.transaction.message.getAccountKeys().keySegments().flat();
+      } else if (transaction.transaction.compileMessage) {
+        return transaction.transaction.compileMessage().getAccountKeys().keySegments().flat();
+      } else {
+        return [];
+      }
+    } catch (error) {
+      this.logger.error('Error getting transaction accounts', error);
+      return [];
+    }
+  }
+
+   // Méthode pour récupérer l'historique des transactions
+   async getWalletTransactions(
+    userId: string,
+    walletPublicKey: string,
+    limit: number = 50,
+    skip: number = 0
+  ): Promise<any> {
+    try {
+      // Vérifier si le wallet existe
+      const wallet = await this.WalletModel.findOne({
+        userId,
+        publicKey: walletPublicKey
+      });
+
+      if (!wallet) {
+        throw new BadRequestException('Wallet not found');
+      }
+
+      const transactions = await this.TransactionModel.find({
+        walletPublicKey,
+        userId
+      })
+      .sort({ blockTime: -1 })
+      .skip(skip)
+      .limit(limit)
+      .exec();
+
+      return {
+        success: true,
+        count: transactions.length,
+        transactions
+      };
+    } catch (error) {
+      this.logger.error('Error getting wallet transactions', error);
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  private determineTransactionType(transaction: any): string {
+    try {
+      if (transaction.meta.err) {
+        return 'failed';
+      }
+      
+      const preBalance = transaction.meta.preBalances[0];
+      const postBalance = transaction.meta.postBalances[0];
+      
+      if (postBalance > preBalance) {
+        return 'receive';
+      } else if (postBalance < preBalance) {
+        return 'send';
+      }
+      
+      return 'unknown';
+    } catch (error) {
+      return 'unknown';
     }
   }
 
@@ -417,6 +737,7 @@ export class SolanaService {
       throw new BadRequestException('Transaction failed due to an unexpected error');
     }
   }
+
   async syncWalletBalanceInDatabase(publicKey: string): Promise<number> {
     try {
       const publicKeyObj = new web3.PublicKey(publicKey);
@@ -462,7 +783,7 @@ export class SolanaService {
 
   async getTransactionsByWallet(walletAddress: string) {
     const publicKey = new web3.PublicKey(walletAddress);
-    
+
     const signatures = await this.connection.getSignaturesForAddress(publicKey, {
       limit: 50, // Récupérer les 50 dernières transactions
     });
@@ -485,10 +806,6 @@ export class SolanaService {
     return transactions;
   }
 
-  private determineTransactionType(transaction: any): string {
-    // Logique simplifiée de détection de type
-    return 'transfer'; // Type par défaut
-  }
   create(createWalletDto: createWalletDto) {
     return 'This action adds a new solana';
   }

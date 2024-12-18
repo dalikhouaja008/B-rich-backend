@@ -29,8 +29,7 @@ export class PoolController {
   @HttpCode(200)
   async deposit(@Body() dto: PoolDepositDto) {
       const connection = getConnection(dto.network);
-
-      // FIXME: move outside of the execution REST API
+      
       const keypair = keypairFromBs58(dto.publicKey, dto.secretKey);
 
       const pool = getPoolFromTokens(dto.network, dto.tokenA, dto.tokenB);

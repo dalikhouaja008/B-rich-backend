@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards,Request  } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards,Request, Query  } from '@nestjs/common';
 import { SolanaService } from './solana.service';
 import { createWalletDto } from './dto/create-wallet.dto';
 import { UpdateSolanaDto } from './dto/update-solana.dto';
@@ -9,6 +9,17 @@ import { JwtAuthGuard } from 'src/guards/jwtAuth.guard';
 export class SolanaController {
   constructor(private readonly solanaService: SolanaService) {}
 
+@Post('create-tnd-wallet')
+@UseGuards(JwtAuthGuard)
+async createTNDWallet(
+  @Request() req,
+  @Body('amount') amount: number
+) {
+  return this.solanaService.createTNDWallet(
+    { userId: req.user.id }, 
+    amount
+  );
+}
   @Post('create-currency-wallet')
   @UseGuards(JwtAuthGuard)
   async createCurrencyWallet(
@@ -20,6 +31,31 @@ export class SolanaController {
       { userId: req.user.id }, 
       currency, 
       amount
+    );
+  }
+
+  @Post('sync-transactions')
+  @UseGuards(JwtAuthGuard)
+  async syncWalletTransactions(
+    @Request() req,
+    @Body('walletPublicKey') walletPublicKey: string
+  ) {
+    return this.solanaService.syncWalletTransactions(walletPublicKey, req.user.id);
+  }
+
+  @Get('transactions/:walletPublicKey')
+  @UseGuards(JwtAuthGuard)
+  async getWalletTransactions(
+    @Request() req,
+    @Param('walletPublicKey') walletPublicKey: string,
+    @Query('limit') limit?: number,
+    @Query('skip') skip?: number
+  ) {
+    return this.solanaService.getWalletTransactions(
+      req.user.id,
+      walletPublicKey,
+      limit,
+      skip
     );
   }
 
@@ -79,6 +115,23 @@ export class SolanaController {
     async getUserWallets(@Request() req) {
       return this.solanaService.getUserWallets(req.user.id);
     }
+
+    
+  @Get('users/wallets-transactions')
+  async getUsersWithWalletsAndTransactions(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    return this.solanaService.getUsersWithWalletsAndTransactions(page, limit);
+  }
+
+  @Get('user/wallets-transactions/:userId')
+  async getUserWalletsAndTransactions(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10
+  ) {
+    return this.solanaService.getUsersWithWalletsAndTransactions(page, limit);
+  }
 
   @Post()
   create(@Body() createWalletDto: createWalletDto) {
