@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, HttpStatus, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { createWalletDto } from './dto/create-wallet.dto';
 import { UpdateSolanaDto } from './dto/update-solana.dto';
 import * as web3 from '@solana/web3.js';
@@ -69,9 +69,15 @@ export class SolanaService {
   }
 
   // Création d'un nouveau wallet
-  async createCurrencyWallet(createWalletDto: createWalletDto, currency: string, amount: number): Promise<Wallet> {
+  async createCurrencyWallet(
+    createWalletDto: createWalletDto,
+    currency: string,
+    amount: number
+  ): Promise<Wallet> {
+    this.logger.log(`Creating new wallet for user ${createWalletDto.userId}`);
+
     try {
-      // Chercher un wallet existant pour l'utilisateur avec la même devise et type
+      // Chercher un wallet existant
       let existingWallet = await this.WalletModel.findOne({
         userId: createWalletDto.userId,
         currency: currency,
@@ -79,36 +85,62 @@ export class SolanaService {
       });
 
       if (existingWallet) {
-        // Si le wallet existe, mettre à jour le solde
         existingWallet.balance += amount;
         return await existingWallet.save();
       }
 
-      // Si aucun wallet n'existe, créer un nouveau wallet
+      // Générer un nouveau wallet
       const keypair = web3.Keypair.generate();
       const publicKey = keypair.publicKey.toBase58();
-      const privateKey = keypair.secretKey;
 
-      // Créer le compte Solana
-      await this.createSolanaAccount(keypair.publicKey, amount);
+      try {
+        await this.createSolanaAccount(keypair.publicKey, amount);
+      } catch (error) {
+        if (error.message.includes('429')) {
+          this.logger.warn('Airdrop rate limited, creating wallet without initial balance');
+          
+          // Créer le wallet même sans airdrop initial
+          const walletName = createWalletDto.walletName || 
+            `${currency.toUpperCase()} Wallet ${new Date().getTime()}`;
+
+          const newWallet = new this.WalletModel({
+            userId: createWalletDto.userId,
+            walletName: walletName,
+            publicKey: publicKey,
+            type: 'GENERATED',
+            network: 'devnet',
+            currency: currency,
+            balance: 0,
+            privateKey: this.encryptPrivateKey(keypair.secretKey)
+          });
+
+          const savedWallet = await newWallet.save();
+          
+          throw new HttpException({
+            status: HttpStatus.CREATED,
+            message: 'Wallet created without initial balance due to rate limits',
+            wallet: savedWallet
+          }, HttpStatus.CREATED);
+        }
+        throw error;
+      }
 
       const newWallet = new this.WalletModel({
         userId: createWalletDto.userId,
+        walletName: createWalletDto.walletName || 
+          `${currency.toUpperCase()} Wallet ${new Date().getTime()}`,
         publicKey: publicKey,
         type: 'GENERATED',
         network: 'devnet',
         currency: currency,
         balance: amount,
-        privateKey: this.encryptPrivateKey(privateKey)
+        privateKey: this.encryptPrivateKey(keypair.secretKey)
       });
 
-      // Enregistrer le wallet dans la base de données
-      const savedWallet = await newWallet.save();
-
-      return savedWallet;
+      return await newWallet.save();
     } catch (error) {
-      this.logger.error('Currency wallet creation/update error', error);
-      throw new BadRequestException('Failed to create or update wallet');
+      this.logger.error('Wallet creation failed', error);
+      throw new BadRequestException(error.message);
     }
   }
 
@@ -238,10 +270,12 @@ export class SolanaService {
     }
   }
 
+  /*
   // Récupérer tous les wallets d'un utilisateur
   async getUserWallets(userId: string): Promise<Wallet[]> {
     return this.WalletModel.find({ userId });
-  }
+  }*/
+ 
   async syncWalletBalances(fromPublicKey: string, toPublicKey: string) {
     try {
       const fromPublicKeyObj = new web3.PublicKey(fromPublicKey);
@@ -504,6 +538,7 @@ export class SolanaService {
     return `This action removes a #${id} solana`;
   }
 
+  /*
   async getUserById(userId: string): Promise<User | null> {
     const user = await User.findOne({ where: { id: userId } }) as unknown as User | null;
     return user || null;
@@ -514,7 +549,9 @@ export class SolanaService {
     // Logic to fetch wallets associated with the user
     const wallets = await Wallet.find({ where: { userId } });
     return wallets;
-  }
+  }*/
+
+    
 
 }
 function InjectRepository(Wallet: any): (target: typeof SolanaService, propertyKey: undefined, parameterIndex: 0) => void {

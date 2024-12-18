@@ -1,22 +1,22 @@
-import { IsString, IsNumber, IsOptional, IsIn } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, IsOptional } from 'class-validator';
 
 export class createWalletDto {
+  @IsNotEmpty()
   @IsString()
   userId: string;
 
+  @IsNotEmpty()
   @IsString()
-  @IsIn(['GENERATED', 'PHANTOM', 'IMPORTED'])
-  type: string;
+  walletName: string;
 
-  @IsOptional()
+  @IsNotEmpty()
   @IsString()
-  network?: string;
+  currency: string;
 
-  @IsOptional()
   @IsNumber()
-  balance?: number;
+  amount: number;
 
-  @IsOptional()
   @IsString()
-  currency?: string;
+  @IsOptional()
+  type?: string;
 }

@@ -9,10 +9,13 @@ import {
   NotFoundException,
   HttpCode,
   HttpStatus,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
 import { AccountsService } from './accounts.service';
 import { Account } from './schemas/account.schema';
 import { CreateAccountDto } from './dtos/create-account.dto';
+import { JwtAuthGuard } from 'src/guards/jwtAuth.guard';
 
 @Controller('accounts')
 export class AccountsController {
@@ -119,4 +122,18 @@ export class AccountsController {
       return { totalBalance: 0 };
     }
   }
+
+
+  @Get('default-account')
+@UseGuards(JwtAuthGuard)
+async getDefaultAccountByUser(@Request() req) {
+  const userId = req.user.id; // Extrait correctement l'ID utilisateur
+  const defaultAccount = await this.accountsService.getDefaultAccountByUser(userId);
+
+  if (!defaultAccount) {
+    throw new NotFoundException('Default account not found');
+  }
+
+  return defaultAccount;
+}
 }

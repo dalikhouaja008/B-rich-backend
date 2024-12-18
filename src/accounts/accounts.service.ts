@@ -6,6 +6,7 @@ import { CreateAccountDto } from './dtos/create-account.dto';
 
 @Injectable()
 export class AccountsService {
+  accountRepository: any;
   constructor(
     @InjectModel(Account.name) private accountModel: Model<AccountDocument>,
   ) {}
@@ -250,4 +251,14 @@ export class AccountsService {
         return null;
       }
     }
+
+    async getDefaultAccountByUser(userId: string): Promise<Account | null> {
+      const userObjectId = new Types.ObjectId(userId);
+    
+      return await this.accountModel.findOne({
+        user: userObjectId,
+        isDefault: true,
+      }).exec();
+    }
+    
   }

@@ -18,6 +18,7 @@ import { nanoid } from 'nanoid';
 import { ResetToken } from './schemas/reset-token.schema';
 import { MailService } from 'src/services/mail.service';
 import { RolesService } from 'src/roles/roles.service';
+import { Wallet } from 'src/solana/schemas/wallet.schema';
 
 @Injectable()
 export class AuthService {
@@ -31,6 +32,7 @@ export class AuthService {
     private mailService: MailService,
     private rolesService: RolesService,
     private readonly mailerService: MailService,
+    @InjectModel(Wallet.name) private WalletModel: Model<Wallet>,
   ) {}
 
   async signup(signupData: SignupDto) {
@@ -277,17 +279,17 @@ export class AuthService {
       }
       throw new UnauthorizedException('Invalid credentials');
     }
+
+
+    async findByUserId(userId: string): Promise<Wallet[]> {
+      try {
+        // Find all wallets for the user
+        const wallets = await this.WalletModel.find({ userId: userId }).exec();
+        return wallets;
+      } catch (error) {
+        throw new Error(`Failed to fetch wallets: ${error.message}`);
+      }
+    }
+    
   
 }
-
-
-
-
-
-
-
-
-
-
-  
-

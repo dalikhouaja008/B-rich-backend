@@ -17,6 +17,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from 'src/guards/jwtAuth.guard';
 import { UsersService } from './users.service';
+import { Wallet, WalletSchema } from 'src/solana/schemas/wallet.schema';
 
 @Module({
   imports: [
@@ -44,6 +45,10 @@ import { UsersService } from './users.service';
         name: ResetToken.name,
         schema: ResetTokenSchema,
       },
+      { 
+        name: Wallet.name, 
+        schema: WalletSchema 
+      },
     ]),
     MailerModule.forRoot({
       transport: {
@@ -61,6 +66,6 @@ import { UsersService } from './users.service';
   ],
   controllers: [AuthController],
   providers: [AuthService, MailService,JwtStrategy, JwtAuthGuard, UsersService],
-  exports: [AuthService,PassportModule,JwtModule, JwtStrategy, JwtAuthGuard],
+  exports: [AuthService,PassportModule,JwtModule, JwtStrategy, JwtAuthGuard, UsersService],
 })
 export class AuthModule {}

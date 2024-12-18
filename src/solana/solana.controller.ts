@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards,Request, BadRequestException  } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards,Request, BadRequestException, HttpException, HttpStatus  } from '@nestjs/common';
 import { SolanaService } from './solana.service';
 import { createWalletDto } from './dto/create-wallet.dto';
 import { UpdateSolanaDto } from './dto/update-solana.dto';
@@ -13,17 +13,28 @@ export class SolanaController {
   @UseGuards(JwtAuthGuard)
   async createCurrencyWallet(
     @Request() req,
-    @Body('currency') currency: string,
-    @Body('amount') amount: number
+    @Body() createWalletDto: createWalletDto
   ) {
-    return this.solanaService.createCurrencyWallet(
-      {
+    try {
+      const walletData = {
+        ...createWalletDto,
         userId: req.user.id,
-        type: ''
-      }, 
-      currency, 
-      amount
-    );
+        walletName: createWalletDto.walletName || 
+          `${createWalletDto.currency.toUpperCase()} Wallet ${new Date().getTime()}`
+      };
+
+      return await this.solanaService.createCurrencyWallet(
+        walletData,
+        createWalletDto.currency,
+        createWalletDto.amount
+      );
+    } catch (error) {
+      if (error instanceof HttpException && error.getStatus() === HttpStatus.CREATED) {
+        // Cas spécial où le wallet est créé sans balance initiale
+        return error.getResponse();
+      }
+      throw error;
+    }
   }
 
 
@@ -109,7 +120,7 @@ export class SolanaController {
     return this.solanaService.remove(+id);
   }
 
-
+/*
   @Get('user-wallets/:userId')
   async getUserWallets(@Param('userId') userId: string) {
     if (!userId) {
@@ -128,5 +139,5 @@ export class SolanaController {
     } catch (error) {
       throw new Error('Error retrieving user wallets');
     }
-  }
+  }*/
 }

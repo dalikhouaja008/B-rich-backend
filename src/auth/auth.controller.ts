@@ -7,7 +7,9 @@ import {
   UseGuards,
   Get,
   Param,
-  NotFoundException, // Assurez-vous que Param est importé ici
+  NotFoundException,
+  HttpException,
+  HttpStatus, // Assurez-vous que Param est importé ici
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SignupDto } from './dtos/signup.dto';
@@ -27,22 +29,22 @@ export class AuthController {
   ) {}
 
 // Endpoint GET /auth/user-wallet/:id
-  @Get('user-wallet/:id')
+@Get('user-wallet/:id')
   async getUserWallet(@Param('id') id: string) {
-    // Récupérer le user avec son portefeuille
-    const user = await this.usersService.findById(id);
-
-    // Si le user n'existe pas
-    if (!user) {
-      throw new NotFoundException('Utilisateur introuvable');
+    try {
+      const wallets = await this.authService.findByUserId(id);
+      return {
+        success: true,
+        userId: id,
+        wallet: wallets,
+      };
+    } catch (error) {
+      throw new HttpException({
+        success: false,
+        message: 'Error fetching user wallets',
+        error: error.message,
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-
-    // Retourner uniquement les informations du wallet
-    return {
-      success: true,
-      userId: user._id,
-      wallet: user.wallet, // Assurez-vous que le champ `wallet` existe dans le schema de l'utilisateur
-    };
   }
 
   // Endpoint GET /auth/users

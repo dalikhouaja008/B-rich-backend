@@ -1,35 +1,34 @@
-
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import mongoose, { Document } from 'mongoose';
+import { Document } from 'mongoose';
 
-@Schema()
+@Schema({ timestamps: true })
 export class Wallet extends Document {
-  static find(arg0: { where: { userId: string; }; }) {
-    throw new Error('Method not implemented.');
-  }
-  @Prop() 
+  @Prop({ required: true })
   userId: string;
-  @Prop()
-  publicKey: string;
-  @Prop()
-  privateKey?: string;
-  @Prop({ 
-    enum: ['GENERATED', 'PHANTOM', 'IMPORTED'],
-    default: 'GENERATED'
-  })
-  type: string;
-  @Prop()
-  network: string; // 'mainnet', 'devnet', 'testnet'
-  @Prop()
+
+  @Prop({ required: true })
+  walletName: string;
+
+  @Prop({ required: true, default: 0 })
   balance: number;
-  @Prop({ default: Date.now })
-  createdAt: Date;
-  @Prop()
-  currency?: string;
-  @Prop()
-  originalAmount?: number;
-  @Prop()
-  convertedAmount?: number;
+
+  @Prop({ required: true })
+  currency: string;
+
+  @Prop({ required: true, default: 'GENERATED' })
+  type: string;
+
+  @Prop({ required: true })
+  publicKey: string;
+
+  @Prop({ required: true })
+  privateKey: string;
+
+  @Prop({ default: 0 })
+  originalAmount: number;
+
+  @Prop({ default: 'devnet' })
+  network: string;
 }
 
 export const WalletSchema = SchemaFactory.createForClass(Wallet);
