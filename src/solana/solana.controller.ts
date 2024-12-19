@@ -115,7 +115,11 @@ async createTNDWallet(
     async getUserWallets(@Request() req) {
       return this.solanaService.getUserWallets(req.user.id);
     }
-
+    @Get('wallets-with-transactions')
+    @UseGuards(JwtAuthGuard)
+    async getWalletsWithTransactions(@Request() req) {
+      return this.solanaService.getWalletsWithTransactions(req.user.id);
+    }
     
   @Get('users/wallets-transactions')
   async getUsersWithWalletsAndTransactions(

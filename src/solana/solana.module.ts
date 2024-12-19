@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
 import { SolanaService } from './solana.service';
 import { SolanaController } from './solana.controller';
 import { MongooseModule } from '@nestjs/mongoose';
@@ -27,3 +27,4 @@ import { User, UserSchema } from 'src/auth/schemas/user.schema';
   exports: [SolanaService]
 })
 export class SolanaModule {}
+

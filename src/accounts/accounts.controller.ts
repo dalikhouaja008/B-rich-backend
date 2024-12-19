@@ -7,35 +7,35 @@ import {
   Put,
   Delete,
   Patch,
-  Req,
   HttpCode,
-  NotFoundException,
-  UnauthorizedException,
-  UseGuards,
+  HttpStatus,
 } from '@nestjs/common';
 import { AccountsService } from './accounts.service';
-import { Account } from './schemas/account.schema';
-import { AuthGuard } from '@nestjs/passport';
+import { Account } from './entities/account.entity';
 
 @Controller('accounts')
 export class AccountsController {
   constructor(private readonly accountsService: AccountsService) {}
 
+  // Create account
   @Post()
   async create(@Body() createAccountDto: Partial<Account>): Promise<Account> {
     return this.accountsService.create(createAccountDto);
   }
 
+  // Get all accounts
   @Get()
   async findAll(): Promise<Account[]> {
     return this.accountsService.findAll();
   }
 
+  // Get account by ID
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<Account> {
     return this.accountsService.findOne(id);
   }
 
+  // Update account by ID
   @Put(':id')
   async update(
     @Param('id') id: string,
@@ -44,56 +44,58 @@ export class AccountsController {
     return this.accountsService.update(id, updateAccountDto);
   }
 
+  // Delete account by ID
   @Delete(':id')
-  @HttpCode(204)
+  @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string): Promise<void> {
     return this.accountsService.delete(id);
   }
 
+  // Get account by RIB
   @Get('rib/:rib')
-  @UseGuards(AuthGuard('jwt'))
-  async findByRIB(@Param('rib') rib: string, @Req() req: any): Promise<Account> {
-    const userId = req.user.id;
-    return this.accountsService.findByRIB(rib, userId);
+  async findByRIB(@Param('rib') rib: string): Promise<Account> {
+    return this.accountsService.findByRIB(rib);
   }
 
-  @Patch('rib/:rib/nickname')
-  @UseGuards(AuthGuard('jwt'))
-  async updateNicknameByRIB(
+  // Update account nickname
+  @Patch('nickname/:rib')
+  async updateNickname(
     @Param('rib') rib: string,
     @Body('nickname') nickname: string,
-    @Req() req: any,
   ): Promise<Account> {
-    const userId = req.user.id;
-    return this.accountsService.updateNicknameByRIB(rib, nickname, userId);
+    return this.accountsService.updateNickname(rib, nickname);
   }
 
-  @Post('user/:userId')
-  @UseGuards(AuthGuard('jwt'))
-  async createAccountForUser(
-    @Param('userId') userId: string,
-    @Body() createAccountDto: Partial<Account>,
+  // Set account as default
+  @Patch('default/:rib')
+  async setDefaultAccount(@Param('rib') rib: string): Promise<Account> {
+    return this.accountsService.updateDefaultStatus(rib);
+  }
+
+  // Get default account
+  @Get('default')
+  async getDefaultAccount(): Promise<Account> {
+    return this.accountsService.getDefaultAccount();
+  }
+
+  // Update account balance
+  @Patch('balance/:rib')
+  async updateBalance(
+    @Param('rib') rib: string,
+    @Body('amount') amount: number,
   ): Promise<Account> {
-    return this.accountsService.create(createAccountDto, userId);
+    return this.accountsService.updateBalance(rib, amount);
   }
 
-  @Get('user/:userId')
-  @UseGuards(AuthGuard('jwt'))
-  async getAccountsByUser(@Param('userId') userId: string): Promise<Account[]> {
-    return this.accountsService.findByUser(userId);
+  // Get dashboard metrics
+  @Get('dashboard/metrics')
+  async getDashboardMetrics() {
+    return this.accountsService.getDashboardMetrics();
   }
 
-  @Post('send-otp')
-  @UseGuards(AuthGuard('jwt'))
-  async sendOtp(@Req() req: any): Promise<{ message: string }> {
-    const userEmail = req.user.email;
-    if (!userEmail) {
-      throw new UnauthorizedException('User email not found in token.');
-    }
-
-    const otp = this.accountsService.generateOtp();
-    await this.accountsService.sendOtpToEmail(userEmail, otp);
-
-    return { message: 'OTP sent successfully.' };
+  // Get account details by ID
+  @Get(':id/details')
+  async getAccountDetails(@Param('id') id: string) {
+    return this.accountsService.getAccountDetails(id);
   }
 }

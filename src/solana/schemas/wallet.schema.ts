@@ -6,8 +6,8 @@ import mongoose, { Document } from 'mongoose';
 export class Wallet extends Document {
   @Prop() 
   userId: string;
-  @Prop()
-  publicKey: string;
+  @Prop() // Plus d'index unique ici
+  publicKey?: string;
   @Prop()
   privateKey?: string;
   @Prop({ 
@@ -30,3 +30,4 @@ export class Wallet extends Document {
 }
 
 export const WalletSchema = SchemaFactory.createForClass(Wallet);
+

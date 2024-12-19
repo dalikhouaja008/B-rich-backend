@@ -13,6 +13,7 @@ import { User } from 'src/auth/schemas/user.schema';
 
 @Injectable()
 export class SolanaService {
+
   private readonly logger = new Logger(SolanaService.name);
   private connection: web3.Connection;
   private readonly ENCRYPTION_KEY: Buffer;
@@ -163,39 +164,36 @@ export class SolanaService {
   //créer wallet en TND
   async createTNDWallet(createWalletDto: createWalletDto, amount: number): Promise<Wallet> {
     try {
-      const DEFAULT_CURRENCY = 'TND';
-
-      // Vérifier si un wallet TND existe déjà pour cet utilisateur
-      let existingWallet = await this.WalletModel.findOne({
+      // Vérifier si l'utilisateur a déjà un wallet TND
+      const existingWallet = await this.WalletModel.findOne({
         userId: createWalletDto.userId,
-        currency: DEFAULT_CURRENCY,
-        type: 'GENERATED'
+        currency: 'TND'
       });
 
       if (existingWallet) {
-        // Si le wallet existe, mettre à jour uniquement l'originalAmount
+        // Mettre à jour le wallet existant
         existingWallet.originalAmount = (existingWallet.originalAmount || 0) + amount;
         return await existingWallet.save();
       }
+      const keypair = web3.Keypair.generate();
+      const publicKey = keypair.publicKey.toBase58();
 
-      // Si aucun wallet n'existe, créer un nouveau wallet TND
+      // Créer un nouveau wallet TND
       const newWallet = new this.WalletModel({
         userId: createWalletDto.userId,
-        type: 'GENERATED',
-        network: 'devnet',
-        currency: DEFAULT_CURRENCY,
-        originalAmount: amount,
+        publicKey:publicKey,
+        currency: 'TND',
         balance: 0,
-        createdAt: new Date()
+        originalAmount: amount,
       });
 
       return await newWallet.save();
-
     } catch (error) {
       this.logger.error('TND wallet creation/update error', error);
       throw new BadRequestException('Failed to create or update TND wallet');
     }
   }
+
   // Création d'un nouveau wallet
   async createCurrencyWallet(createWalletDto: createWalletDto, currency: string, amount: number): Promise<Wallet> {
     try {
@@ -781,29 +779,117 @@ export class SolanaService {
     }
   }
 
-  async getTransactionsByWallet(walletAddress: string) {
-    const publicKey = new web3.PublicKey(walletAddress);
+   // Mise à jour de la méthode getTransactionsByWallet
+   async getTransactionsByWallet(walletAddress: string) {
+    try {
+      const publicKey = new web3.PublicKey(walletAddress);
+      
+      const signatures = await this.connection.getSignaturesForAddress(publicKey, {
+        limit: 50,
+      });
 
-    const signatures = await this.connection.getSignaturesForAddress(publicKey, {
-      limit: 50, // Récupérer les 50 dernières transactions
-    });
+      const transactions = await Promise.all(
+        signatures.map(async (sig) => {
+          const transaction = await this.connection.getTransaction(sig.signature, {
+            maxSupportedTransactionVersion: 0
+          });
 
-    const transactions = await Promise.all(
-      signatures.map(async (signature) => {
-        const transaction = await this.connection.getTransaction(signature.signature, {
-          maxSupportedTransactionVersion: 0
-        });
+          if (!transaction) return null;
 
-        return {
-          signature: signature.signature,
-          blockTime: transaction.blockTime,
-          amount: transaction.meta.postBalances[0], //LAMPORTS_PER_SOL,
-          type: this.determineTransactionType(transaction)
-        };
-      })
-    );
+          // Créer une nouvelle transaction dans la base de données
+          const transactionData = {
+            signature: sig.signature,
+            walletPublicKey: walletAddress,
+            blockTime: transaction.blockTime,
+            amount: transaction.meta.postBalances[0] / web3.LAMPORTS_PER_SOL,
+            type: this.determineTransactionType(transaction),
+            status: transaction.meta.err ? 'failed' : 'success',
+            fromAddress: transaction.transaction.message.getAccountKeys[0].toString(),
+            toAddress: transaction.transaction.message.getAccountKeys[1].toString(),
+            fee: transaction.meta.fee / web3.LAMPORTS_PER_SOL,
+            timestamp: new Date(transaction.blockTime * 1000)
+          };
 
-    return transactions;
+          // Sauvegarder la transaction dans la base de données si elle n'existe pas déjà
+          await this.TransactionModel.findOneAndUpdate(
+            { signature: sig.signature },
+            transactionData,
+            { upsert: true, new: true }
+          );
+
+          return transactionData;
+        })
+      );
+
+      return transactions.filter(t => t !== null);
+    } catch (error) {
+      this.logger.error('Error fetching transactions', error);
+      throw new BadRequestException('Failed to fetch transactions');
+    }
+  }
+
+  //récupérer les wallets avec leurs transactions pour un user 
+  async getWalletsWithTransactions(userId: string): Promise<Wallet[]> {
+    try {
+      // 1. Récupérer les wallets de l'utilisateur
+      const wallets = await this.WalletModel
+        .find({ userId })
+        .lean();
+
+      if (!wallets || wallets.length === 0) {
+        return [];
+      }
+
+      // 2. Pour chaque wallet, récupérer son solde et ses transactions
+      const walletsWithTransactions = await Promise.all(
+        wallets.map(async (wallet) => {
+          try {
+            // 2.1 Mettre à jour le solde en utilisant votre méthode existante
+            if (wallet.publicKey) {
+              try {
+                const pubKey = new web3.PublicKey(wallet.publicKey);
+                await this.getWalletBalance(pubKey);
+              } catch (balanceError) {
+                this.logger.error(`Error updating balance for wallet ${wallet.publicKey}:`, balanceError);
+              }
+            }
+
+            // 2.2 Récupérer les transactions de la base de données
+            const transactions = await this.TransactionModel
+              .find({
+                $or: [
+                  { fromAddress: wallet.publicKey },
+                  { toAddress: wallet.publicKey }
+                ]
+              })
+              .sort({ blockTime: -1 })
+              .lean();
+
+            // 2.3 Récupérer le wallet mis à jour depuis la base de données
+            const updatedWallet = await this.WalletModel
+              .findOne({ publicKey: wallet.publicKey })
+              .lean();
+
+            return {
+              ...updatedWallet,
+              transactions: transactions || []
+            };
+          } catch (error) {
+            this.logger.error(`Error processing wallet ${wallet.publicKey}:`, error);
+            return {
+              ...wallet,
+              transactions: []
+            };
+          }
+        })
+      );
+
+      return walletsWithTransactions;
+
+    } catch (error) {
+      this.logger.error('Error in getWalletsWithTransactions:', error);
+      throw new BadRequestException('Failed to fetch wallets and transactions');
+    }
   }
 
   create(createWalletDto: createWalletDto) {

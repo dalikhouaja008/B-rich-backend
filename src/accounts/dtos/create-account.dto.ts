@@ -1,30 +1,48 @@
 // src/accounts/dto/create-account.dto.ts
-import { IsString, IsBoolean, IsNumber, IsOptional } from 'class-validator';
+import { IsString, IsEnum, IsNumber, IsOptional, IsBoolean, IsMongoId } from 'class-validator';
+import { Types } from 'mongoose';
+
+export enum AccountType {
+  SAVINGS = 'savings',
+  CHECKING = 'checking',
+  INVESTMENT = 'investment'
+}
+
+
+export enum AccountStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  BLOCKED = 'blocked'
+}
 
 export class CreateAccountDto {
   @IsString()
-  number: string;
-
-  @IsString()
-  type: string;
+  accountNumber: string;
 
   @IsOptional()
+  @IsEnum(AccountType)
+  type?: AccountType;
+//type: string;
+  @IsOptional()
+  @IsEnum(AccountStatus)
+  status?: AccountStatus;
+//status: string;
   @IsString()
-  nickname: string;
-
-  @IsString()
-  status: string;
-
-  @IsString()
-  RIB: string;
-
-  @IsBoolean()
-  isDefault: boolean;
+  rib: string;
 
   @IsNumber()
-  balance: number;
+  @IsOptional()
+  balance?: number;
 
-  @IsOptional() // This field is optional in case it's not provided
-  @IsString() // Validate it as a string (MongoDB ObjectId is a string)
-  userId?: string; // Optional field to associate the account with a user
+  @IsString()
+  @IsOptional()
+  nickname?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isDefault?: boolean;
+
+  @IsMongoId()
+  @IsOptional()
+  userId: Types.ObjectId;
 }
