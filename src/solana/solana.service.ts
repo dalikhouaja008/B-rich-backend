@@ -16,7 +16,7 @@ export class SolanaService {
 
   private readonly logger = new Logger(SolanaService.name);
   private connection: web3.Connection;
-  private readonly ENCRYPTION_KEY: Buffer;
+  private readonly ENCRYPTION_KEY: Buffer = crypto.scryptSync('your-secret-salt', 'salt', 32); // Initialisation directe
   private readonly IV_LENGTH = 16;
   private orca: ReturnType<typeof getOrca>;
 
@@ -35,50 +35,48 @@ export class SolanaService {
     // Verify getOrca is imported and used correctly
     this.orca = getOrca(this.connection);
 
-    this.ENCRYPTION_KEY = encryptionKey
-      ? Buffer.from(encryptionKey, 'hex')
-      : crypto.scryptSync('your-secret-salt', 'salt', 32);
   }
 
-  // Robust Encryption Method
-  public encryptPrivateKey(privateKey: Uint8Array): string {
-    try {
-      const iv = crypto.randomBytes(this.IV_LENGTH);
-      const cipher = crypto.createCipheriv('aes-256-cbc', this.ENCRYPTION_KEY, iv);
-      const encrypted = Buffer.concat([cipher.update(privateKey), cipher.final()]);
-      return `${iv.toString('hex')}:${encrypted.toString('hex')}`;
-    } catch (error) {
-      this.logger.error('Encryption failed', error);
-      throw new Error('Private key encryption failed');
+// Robust Encryption Method
+ // Robust Encryption Method
+ private encryptPrivateKey(privateKey: Uint8Array): string {
+  try {
+    const iv = crypto.randomBytes(this.IV_LENGTH);
+    const cipher = crypto.createCipheriv('aes-256-cbc', this.ENCRYPTION_KEY, iv);
+    const encrypted = Buffer.concat([cipher.update(privateKey), cipher.final()]);
+    return `${iv.toString('hex')}:${encrypted.toString('hex')}`;
+  } catch (error) {
+    this.logger.error('Encryption failed', error);
+    throw new Error('Private key encryption failed');
+  }
+}
+
+// Robust Decryption Method
+private decryptPrivateKey(encryptedPrivateKey: string): Uint8Array {
+  try {
+    // Split IV and encrypted data
+    const [ivHex, encryptedHex] = encryptedPrivateKey.split(':');
+    const iv = Buffer.from(ivHex, 'hex');
+    const encryptedText = Buffer.from(encryptedHex, 'hex');
+
+    // Check IV length
+    if (iv.length !== this.IV_LENGTH) {
+      throw new Error('Invalid IV length');
     }
+
+    // Create decipher
+    const decipher = crypto.createDecipheriv('aes-256-cbc', this.ENCRYPTION_KEY, iv);
+
+    // Decrypt
+    let decrypted = decipher.update(encryptedText);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+
+    return new Uint8Array(decrypted);
+  } catch (error) {
+    this.logger.error('Decryption failed', error.message, error.stack);
+    throw new Error(`Private key decryption failed: ${error.message}`);
   }
-
-  // Robust Decryption Method
-  public decryptPrivateKey(encryptedPrivateKey: string): Uint8Array {
-    try {
-      // Split IV and encrypted data
-      const [ivHex, encryptedHex] = encryptedPrivateKey.split(':');
-      const iv = Buffer.from(ivHex, 'hex');
-      const encryptedText = Buffer.from(encryptedHex, 'hex');
-
-      // Check IV length
-      if (iv.length !== this.IV_LENGTH) {
-        throw new Error('Invalid IV length');
-      }
-
-      // Create decipher
-      const decipher = crypto.createDecipheriv('aes-256-cbc', this.ENCRYPTION_KEY, iv);
-
-      // Decrypt
-      let decrypted = decipher.update(encryptedText);
-      decrypted = Buffer.concat([decrypted, decipher.final()]);
-
-      return new Uint8Array(decrypted);
-    } catch (error) {
-      this.logger.error('Decryption failed', error.message, error.stack);
-      throw new Error(`Private key decryption failed: ${error.message}`);
-    }
-  }
+}
   async getUsersWithWalletsAndTransactions(
     page: number = 1,
     limit: number = 10,
@@ -195,48 +193,49 @@ export class SolanaService {
   }
 
   // Création d'un nouveau wallet
-  async createCurrencyWallet(createWalletDto: createWalletDto, currency: string, amount: number): Promise<Wallet> {
-    try {
-      // Chercher un wallet existant pour l'utilisateur avec la même devise et type
-      let existingWallet = await this.WalletModel.findOne({
-        userId: createWalletDto.userId,
-        currency: currency,
-        type: 'GENERATED'
-      });
-
-      if (existingWallet) {
-        // Si le wallet existe, mettre à jour le solde
-        existingWallet.balance += amount;
-        return await existingWallet.save();
+    // Création d'un nouveau wallet
+    async createCurrencyWallet(createWalletDto: createWalletDto, currency: string, amount: number): Promise<Wallet> {
+      try {
+        // Chercher un wallet existant pour l'utilisateur avec la même devise et type
+        let existingWallet = await this.WalletModel.findOne({
+          userId: createWalletDto.userId,
+          currency: currency,
+          type: 'GENERATED'
+        });
+    
+        if (existingWallet) {
+          // Si le wallet existe, mettre à jour le solde
+          existingWallet.balance += amount;
+          return await existingWallet.save();
+        }
+    
+        // Si aucun wallet n'existe, créer un nouveau wallet
+        const keypair = web3.Keypair.generate();
+        const publicKey = keypair.publicKey.toBase58();
+        const privateKey = keypair.secretKey;
+    
+        // Créer le compte Solana
+        await this.createSolanaAccount(keypair.publicKey, amount);
+    
+        const newWallet = new this.WalletModel({
+          userId: createWalletDto.userId,
+          publicKey: publicKey,
+          type: 'GENERATED',
+          network: 'devnet',
+          currency: currency,
+          balance: amount,
+          privateKey: this.encryptPrivateKey(privateKey)
+        });
+    
+        // Enregistrer le wallet dans la base de données
+        const savedWallet = await newWallet.save();
+    
+        return savedWallet;
+      } catch (error) {
+        this.logger.error('Currency wallet creation/update error', error);
+        throw new BadRequestException('Failed to create or update wallet');
       }
-
-      // Si aucun wallet n'existe, créer un nouveau wallet
-      const keypair = web3.Keypair.generate();
-      const publicKey = keypair.publicKey.toBase58();
-      const privateKey = keypair.secretKey;
-
-      // Créer le compte Solana
-      await this.createSolanaAccount(keypair.publicKey, amount);
-
-      const newWallet = new this.WalletModel({
-        userId: createWalletDto.userId,
-        publicKey: publicKey,
-        type: 'GENERATED',
-        network: 'devnet',
-        currency: currency,
-        balance: amount,
-        privateKey: this.encryptPrivateKey(privateKey)
-      });
-
-      // Enregistrer le wallet dans la base de données
-      const savedWallet = await newWallet.save();
-
-      return savedWallet;
-    } catch (error) {
-      this.logger.error('Currency wallet creation/update error', error);
-      throw new BadRequestException('Failed to create or update wallet');
     }
-  }
 
   // Nouvelle méthode pour créer un compte Solana
   async createSolanaAccount(publicKey: web3.PublicKey, amount: number): Promise<string> {
@@ -257,63 +256,36 @@ export class SolanaService {
   }
 
   async convertCurrency(
-    userId: string,
-    amount: number,
+    userId: string, 
+    amount: number, 
     fromCurrency: string
   ): Promise<Wallet> {
     try {
       // Fixed exchange rates
       const exchangeRates = {
-        'EUR': 0.1, // 1 EUR = 0.001 SOL 
-        'USD': 0.5, // 1 USD = 0.0005 SOL
-        'GBP': 0.8  // 1 GBP = 0.0008 SOL
+        'EUR': 0.001, // 1 EUR = 0.001 SOL 
+        'USD': 0.0005, // 1 USD = 0.0005 SOL
+        'GBP': 0.0008  // 1 GBP = 0.0008 SOL
       };
-
+  
       // Validate currency support
       if (!exchangeRates[fromCurrency]) {
         throw new BadRequestException('Devise non supportée');
       }
-      // First, convert the amount to TND
-      const amountInTND = await this.exchangeRateService.getConvertedAmountFromOtherCurrencyToTND(
-        amount,
-        fromCurrency
-      );
-      // Find TND wallet
-      const tndWallet = await this.WalletModel.findOne({
-        userId: userId,
-        currency: 'TND',
-        type: 'GENERATED'
-      });
-
-      // Check if TND wallet exists and has sufficient balance
-      if (!tndWallet) {
-        throw new BadRequestException('Wallet en Dinars non trouvé');
-      }
-
-      // Après la modification (correction)
-      const currentBalance = Number(tndWallet.originalAmount || 0);
-      const requiredAmount = Number(amountInTND);
-
-      if (currentBalance < requiredAmount) {
-        throw new BadRequestException(
-          `Solde insuffisant en Dinars. Solde actuel: ${currentBalance} TND, Montant nécessaire: ${requiredAmount} TND`
-        );
-      }
+  
       // Calculate converted amount
       const convertedAmount = amount * exchangeRates[fromCurrency];
-
+  
       // Find existing wallet for the user and currency
       let wallet = await this.WalletModel.findOne({
         userId: userId,
         currency: fromCurrency,
         type: 'GENERATED'
       });
-
+  
       if (wallet) {
         // Update existing wallet balance
         wallet.balance += convertedAmount;
-        //update existing origianl amount 
-        wallet.originalAmount += amount;
       } else {
         // Create new wallet if none exists
         const keypair = web3.Keypair.generate();
@@ -324,36 +296,31 @@ export class SolanaService {
           network: 'devnet',
           currency: fromCurrency,
           balance: convertedAmount,
-          originalAmount: amount,
           privateKey: this.encryptPrivateKey(keypair.secretKey)
         });
       }
-
-      // Update TND wallet balance
-      tndWallet.originalAmount -= Number(amountInTND);
-      await tndWallet.save();
-
+  
       // Create Solana account and request airdrop
       try {
         await this.createSolanaAccount(
-          new web3.PublicKey(wallet.publicKey),
+          new web3.PublicKey(wallet.publicKey), 
           convertedAmount
         );
       } catch (airdropError) {
         this.logger.warn('Airdrop partiel ou échoué', airdropError);
       }
-
+  
       // Save wallet and sync balance
       const savedWallet = await wallet.save();
       await this.syncWalletBalanceInDatabase(savedWallet.publicKey);
-
+  
       return savedWallet;
     } catch (error) {
       this.logger.error('Erreur de conversion', error);
       throw error;
     }
   }
-
+  
   async requestAirdrop(publicKey: web3.PublicKey, amount: number): Promise<string> {
     try {
       const signature = await this.connection.requestAirdrop(
@@ -589,20 +556,20 @@ export class SolanaService {
     try {
       const sender = new web3.PublicKey(fromPublicKey);
       const recipient = new web3.PublicKey(toPublicKey);
-
+      
       const balance = await this.getWalletBalance(sender);
       this.logger.log(`Sender Wallet Balance: ${balance} SOL`);
       this.logger.log(`Transfer Amount: ${amount} SOL`);
-
+  
       if (balance < amount) {
         throw new BadRequestException(`Insufficient funds. Current balance: ${balance} SOL, Requested transfer: ${amount} SOL`);
       }
-
+  
       const senderKeypair = web3.Keypair.fromSecretKey(fromSecretKey);
       const { blockhash } = await this.connection.getLatestBlockhash('confirmed');
-
+  
       this.logger.log(`Current Blockhash: ${blockhash}`);
-
+  
       const transaction = new web3.VersionedTransaction(
         new web3.TransactionMessage({
           payerKey: sender,
@@ -611,33 +578,38 @@ export class SolanaService {
             web3.SystemProgram.transfer({
               fromPubkey: sender,
               toPubkey: recipient,
-              lamports: Math.floor(amount * 1_000_000_000) // Corrected lamports calculation
+              lamports: Math.floor(amount * 1_000_000_000)
             })
           ]
         }).compileToV0Message()
       );
-
+  
       transaction.sign([senderKeypair]);
-
       const rawTransaction = transaction.serialize();
-
+  
       const signature = await this.connection.sendRawTransaction(rawTransaction, {
         skipPreflight: false,
         preflightCommitment: 'confirmed'
       });
-
+  
       this.logger.log(`Transaction Signature: ${signature}`);
-
+  
       const confirmation = await this.connection.confirmTransaction({
         signature: signature,
         blockhash: blockhash,
         lastValidBlockHeight: (await this.connection.getBlockHeight()) + 150
       });
-
+  
       if (confirmation.value.err) {
         throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
       }
 
+      // Synchroniser les balances immédiatement après la transaction
+      await this.syncWalletBalances(fromPublicKey, toPublicKey);
+
+      // Mettre à jour les balances dans la base de données
+      await this.updateWalletsAfterTransaction(fromPublicKey, toPublicKey, amount);
+  
       return signature;
     } catch (error) {
       this.logger.error('Transaction Error:', {
@@ -647,10 +619,83 @@ export class SolanaService {
         toPublicKey: toPublicKey,
         amount: amount
       });
-
+  
       throw error;
     }
   }
+
+  private async updateWalletsAfterTransaction(fromPublicKey: string, toPublicKey: string, amount: number) {
+    try {
+      // Récupérer les balances actuelles depuis la blockchain
+      const fromPublicKeyObj = new web3.PublicKey(fromPublicKey);
+      const toPublicKeyObj = new web3.PublicKey(toPublicKey);
+
+      const [fromBalance, toBalance] = await Promise.all([
+        this.connection.getBalance(fromPublicKeyObj),
+        this.connection.getBalance(toPublicKeyObj)
+      ]);
+
+      // Convertir les balances en SOL
+      const fromBalanceSOL = fromBalance / web3.LAMPORTS_PER_SOL;
+      const toBalanceSOL = toBalance / web3.LAMPORTS_PER_SOL;
+
+      // Mettre à jour les wallets dans la base de données
+      await Promise.all([
+        this.WalletModel.findOneAndUpdate(
+          { publicKey: fromPublicKey },
+          { balance: fromBalanceSOL },
+          { new: true }
+        ),
+        this.WalletModel.findOneAndUpdate(
+          { publicKey: toPublicKey },
+          { balance: toBalanceSOL },
+          { new: true }
+        )
+      ]);
+
+      this.logger.log(`Wallets updated successfully after transaction`);
+    } catch (error) {
+      this.logger.error('Error updating wallets after transaction:', error);
+      throw new Error('Failed to update wallets after transaction');
+    }
+  }
+  private async updateWalletBalances(fromPublicKey: string, toPublicKey: string, amount: number) {
+    try {
+      const [fromWallet, toWallet] = await Promise.all([
+        this.WalletModel.findOne({ publicKey: fromPublicKey }),
+        this.WalletModel.findOne({ publicKey: toPublicKey })
+      ]);
+
+      if (fromWallet) {
+        fromWallet.balance -= amount;
+        await fromWallet.save();
+      }
+
+      if (toWallet) {
+        toWallet.balance += amount;
+        await toWallet.save();
+      }
+
+      this.logger.log(`Wallet balances updated successfully`);
+    } catch (error) {
+      this.logger.error('Error updating wallet balances:', error);
+      throw new Error('Failed to update wallet balances');
+    }
+  }
+  private async saveTransactionDetails(transactionData: Transaction) {
+    try {
+      this.logger.log('Saving transaction details:', transactionData);
+      
+      // Ici, vous pouvez implémenter la logique pour sauvegarder 
+      // les détails de la transaction dans votre base de données
+      
+      this.logger.log(`Transaction details saved successfully`);
+    } catch (error) {
+      this.logger.error('Error saving transaction details:', error);
+      throw new Error('Failed to save transaction details');
+    }
+  }
+
   // Updated transfer method with more robust checks
   // Modify the transfer method to explicitly handle balance
   async transferBetweenWallets(
@@ -660,21 +705,19 @@ export class SolanaService {
     amount: number
   ): Promise<string> {
     try {
-      // Detailed logging at the start
       this.logger.log(`Starting transfer: User ${userId}, From ${fromWalletPublicKey}, To ${toWalletPublicKey}, Amount ${amount}`);
-
+  
       const fromWallet = await this.WalletModel.findOne({
         userId: userId,
         publicKey: fromWalletPublicKey
       });
-
+  
       if (!fromWallet) {
         throw new BadRequestException('Source wallet not found');
       }
-
+  
       const fromPublicKeyObj = new web3.PublicKey(fromWalletPublicKey);
-
-      // More robust network balance retrieval
+      
       let networkBalance: number;
       try {
         networkBalance = await this.connection.getBalance(fromPublicKeyObj);
@@ -682,21 +725,19 @@ export class SolanaService {
         this.logger.error('Network balance retrieval failed', networkError);
         throw new BadRequestException('Unable to retrieve network balance');
       }
-
+  
       const balanceInSOL = networkBalance / web3.LAMPORTS_PER_SOL;
-
+      
       this.logger.log(`Network Balance: ${balanceInSOL} SOL`);
-
-      // Stricter balance check
+  
       if (balanceInSOL < amount) {
         throw new BadRequestException(
           `Insufficient funds. Current balance: ${balanceInSOL.toFixed(4)} SOL, Requested transfer: ${amount} SOL`
         );
       }
-
+  
       const fromSecretKey = this.decryptPrivateKey(fromWallet.privateKey);
-
-      // Additional validation for wallet keys
+  
       try {
         new web3.PublicKey(fromWalletPublicKey);
         new web3.PublicKey(toWalletPublicKey);
@@ -704,18 +745,18 @@ export class SolanaService {
         this.logger.error('Invalid wallet public key', keyError);
         throw new BadRequestException('Invalid wallet public key format');
       }
-
+  
       const signature = await this.sendTransaction(
         fromWalletPublicKey,
         fromSecretKey,
         toWalletPublicKey,
         amount
       );
-
+  
       this.logger.log(`Transfer successful. Signature: ${signature}`);
-
-      await this.syncWalletBalances(fromWalletPublicKey, toWalletPublicKey);
-
+  
+      // La synchronisation est maintenant gérée dans sendTransaction
+  
       return signature;
     } catch (error) {
       this.logger.error('Comprehensive wallet transfer error', {
@@ -726,15 +767,17 @@ export class SolanaService {
         errorMessage: error.message,
         errorStack: error.stack
       });
-
-      // More specific error handling
+  
       if (error instanceof BadRequestException) {
         throw error;
       }
-
+  
       throw new BadRequestException('Transaction failed due to an unexpected error');
     }
   }
+  // Updated transfer method with more robust checks
+  // Modify the transfer method to explicitly handle balance
+  
 
   async syncWalletBalanceInDatabase(publicKey: string): Promise<number> {
     try {
