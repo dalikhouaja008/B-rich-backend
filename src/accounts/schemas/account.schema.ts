@@ -13,11 +13,11 @@ export class Account extends Document {
   @Prop({ required: false, enum: ['active', 'inactive', 'blocked'],set: (value: string) => value?.toLowerCase(), default: 'active' })
   status: string;
 
-  @Prop({ required: true, unique: true })
+  @Prop({ required: false, unique: true })
   rib: string;
 
-  @Prop({ type: SchemaTypes.ObjectId, ref: 'User', required: false })
-  userId: Types.ObjectId;
+ // @Prop({ type: SchemaTypes.ObjectId, ref: 'User', required: false })
+  //userId: Types.ObjectId;
 
   @Prop({ required: false })
   nickname: string;
