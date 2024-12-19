@@ -13,6 +13,11 @@ import { PredictionModule } from './prediction/prediction.module';
 import { SolanaModule } from './solana/solana.module';
 import { NewsModule } from './news/news.module';
 import { AccountsModule } from './accounts/accounts.module';
+import { PoolModule } from './pool/pool.module';
+import { FarmModule } from './farm/farm.module';
+import { TokenModule } from './token/token.module';
+import { SwapModule } from './swap/swap.module';
+import { PortfolioModule } from './portfolio/portfolio.module';
 
 @Module({
   imports: [
@@ -44,6 +49,11 @@ import { AccountsModule } from './accounts/accounts.module';
     SolanaModule,
     NewsModule,
     AccountsModule,
+    PoolModule,
+    FarmModule,
+    TokenModule,
+    SwapModule,
+    PortfolioModule,
   ],
   controllers: [AppController],
   providers: [AppService],

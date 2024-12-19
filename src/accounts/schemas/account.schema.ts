@@ -1,27 +1,34 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document, SchemaTypes, Types } from 'mongoose';
+import { AccountType } from '../dtos/create-account.dto';
 
-export type AccountDocument = Account & Document;
+@Schema({ timestamps: true })
+export class Account extends Document {
+  @Prop({ required: false })
+  accountNumber: string;
 
-@Schema({ timestamps: true }) // Adds createdAt and updatedAt fields
-export class Account {
-  @Prop({ required: false, default: null }) // Allow nickname to be null
-  nickname: string | null;
+  @Prop({ required: false, enum: Object.values(AccountType),set: (value: string) => value?.toLowerCase() })
+  type: AccountType;
 
-  @Prop({ required: true })
-  type: string;
-
-  @Prop({ required: true, enum: ['active', 'inactive'] }) // Limit to specific values
+  @Prop({ required: false, enum: ['active', 'inactive', 'blocked'],set: (value: string) => value?.toLowerCase(), default: 'active' })
   status: string;
 
-  @Prop({ default: false })
-  isDefault: boolean; // Ensure this property is defined here
-
-  @Prop({ required: true, unique: true }) // Ensure rib is unique
+  @Prop({ required: false, unique: true })
   rib: string;
+  
+  @Prop({ required: false })
+  nickname: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', unique: true })
-  user: Types.ObjectId; // Reference to a User document
+  @Prop({ required: false, default: 0 })
+  balance: number;
+
+  @Prop({ default: false })
+  isDefault: boolean;
+
+  @Prop({ type: SchemaTypes.ObjectId, ref: 'User', required: false })
+  userId: Types.ObjectId;
+
+
 }
 
 export const AccountSchema = SchemaFactory.createForClass(Account);

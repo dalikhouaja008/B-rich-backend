@@ -7,6 +7,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 @Module({
   imports:  [MongooseModule.forFeature([{name:ExchangeRate.name, schema:exchangeRateShcema}])],
   controllers: [ExchangeRateController],
-  providers: [ExchangeRateService]
+  providers: [ExchangeRateService],
+  exports: [ExchangeRateService]
 })
 export class ExchangeRateModule {}
