@@ -1,17 +1,18 @@
 import * as nodemailer from 'nodemailer';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 @Injectable()
 export class MailService {
   private transporter: nodemailer.Transporter;
-
+  private readonly logger = new Logger(MailService.name);
+  
   constructor() {
     this.transporter = nodemailer.createTransport({
       host: 'smtp.ethereal.email',
       port: 587,
       auth: {
-        user: 'alejandrin.lakin@ethereal.email', // My Ethereal email
-        pass: '4PErrr6uVQp7wKZSyg', //My Ethereal password
+        user: 'genesis.gottlieb@ethereal.email', // My Ethereal email
+        pass: 'ZeVEfRRSP5U4Mg2Zrm', //My Ethereal password
       },
     });
   }
@@ -28,19 +29,23 @@ export class MailService {
   }
 
   async sendPasswordResetEmail(to: string, token: string): Promise<void> {
-    const resetLink = `http://yourapp.com/reset-password?token=${token}`;
+    const resetLink = `myapp://reset-password?token=${token}&&email=${to}`;
     const mailOptions = {
-      from: 'Auth-backend service',
+      from: 'Auth-backend service <no-reply@yourapp.com>',
       to,
       subject: 'Password Reset Request',
-      html: `<p>You requested a password reset. Click the link below to reset your password:</p><p><a href="${resetLink}">Reset Password</a></p>`,
+      html: `
+        <p>You requested a password reset. Click the link below to reset your password:</p>
+        <p><a href="${resetLink}">Reset Password</a></p>
+        <p>If you did not request this, please ignore this email.</p>
+      `,
     };
 
     try {
       await this.transporter.sendMail(mailOptions);
-      console.log(`Password reset email sent to ${to}`);
+      this.logger.log(`Password reset email sent to ${to}`);
     } catch (error) {
-      console.error('Error sending password reset email:', error);
+      this.logger.error('Error sending password reset email:', error.message);
       throw new Error('Could not send password reset email');
     }
   }

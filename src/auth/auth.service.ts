@@ -110,6 +110,7 @@ export class AuthService {
         token: resetToken,
         userId: user._id,
         expiryDate,
+        email: email
       });
       //Send the link to the user by email
       this.mailService.sendPasswordResetEmail(email, resetToken);
@@ -162,8 +163,6 @@ export class AuthService {
     const role = await this.rolesService.getRoleById(user.roleId.toString());
     return role.permissions;
   }
-
-
 
 
   async requestReset(email: string) {
