@@ -1,7 +1,8 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Account, AccountDocument } from './entities/account.entity';
+import { CreateAccountDto } from './dtos/create-account.dto';
 
 @Injectable()
 export class AccountsService {
@@ -10,9 +11,21 @@ export class AccountsService {
   ) {}
 
   // Create a new account
-  async create(accountData: Partial<Account>): Promise<Account> {
-    const account = new this.accountModel(accountData);
-    return account.save();
+  async create(createAccountDto: CreateAccountDto): Promise<Account> {
+    try {
+      const createdAccount = new this.accountModel({
+        ...createAccountDto,
+        userId: null,    // Explicitement null
+        nickname: null,  // Explicitement null
+        isDefault: false // S'assurer que c'est false par défaut
+      });
+      return await createdAccount.save();
+    } catch (error) {
+      if (error.code === 11000) {
+        throw new ConflictException('Account with this RIB already exists');
+      }
+      throw error;
+    }
   }
 
   // Fetch all accounts

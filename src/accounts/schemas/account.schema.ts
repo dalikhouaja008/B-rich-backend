@@ -2,15 +2,18 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, SchemaTypes, Types } from 'mongoose';
 import { AccountType } from '../dtos/create-account.dto';
 
-@Schema({ timestamps: true })
+@Schema({ 
+  timestamps: true,
+  collection: 'accounts'
+})
 export class Account extends Document {
   @Prop({ required: false })
   accountNumber: string;
 
-  @Prop({ required: false, enum: Object.values(AccountType),set: (value: string) => value?.toLowerCase() })
+  @Prop({ required: false, enum: Object.values(AccountType), set: (value: string) => value?.toLowerCase() })
   type: AccountType;
 
-  @Prop({ required: false, enum: ['active', 'inactive', 'blocked'],set: (value: string) => value?.toLowerCase(), default: 'active' })
+  @Prop({ required: false, enum: ['active', 'inactive', 'blocked'], set: (value: string) => value?.toLowerCase(), default: 'active' })
   status: string;
 
   @Prop({ required: false, unique: true })
@@ -25,10 +28,16 @@ export class Account extends Document {
   @Prop({ default: false })
   isDefault: boolean;
 
-  @Prop({ type: SchemaTypes.ObjectId, ref: 'User', required: false })
+  @Prop({ 
+    type: SchemaTypes.ObjectId, 
+    ref: 'User', 
+    required: false,
+    index: { sparse: true } // Définir l'index ici
+  })
   userId: Types.ObjectId;
-
-
 }
 
 export const AccountSchema = SchemaFactory.createForClass(Account);
+
+// Ajouter l'index sparse après la création du schéma
+AccountSchema.index({ userId: 1 }, { sparse: true });

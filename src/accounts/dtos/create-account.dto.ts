@@ -34,15 +34,8 @@ export class CreateAccountDto {
   @IsOptional()
   balance?: number;
 
-  @IsString()
-  @IsOptional()
-  nickname?: string;
-
   @IsBoolean()
   @IsOptional()
   isDefault?: boolean;
 
-  @IsMongoId()
-  @IsOptional()
-  userId: Types.ObjectId;
 }
