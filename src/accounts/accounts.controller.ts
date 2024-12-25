@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { AccountsService } from './accounts.service';
 import { Account } from './entities/account.entity';
+import { CreateAccountDto } from './dtos/create-account.dto';
 
 @Controller('accounts')
 export class AccountsController {
@@ -19,7 +20,7 @@ export class AccountsController {
 
   // Create account
   @Post()
-  async create(@Body() createAccountDto: Partial<Account>): Promise<Account> {
+  async create(@Body() createAccountDto: CreateAccountDto): Promise<Account> {
     return this.accountsService.create(createAccountDto);
   }
 
