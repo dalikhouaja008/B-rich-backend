@@ -1,6 +1,6 @@
-import { ConflictException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import mongoose, { Model, Types } from 'mongoose';
 import { Account, AccountDocument } from './entities/account.entity';
 import { CreateAccountDto } from './dtos/create-account.dto';
 
@@ -90,6 +90,7 @@ export class AccountsService {
       throw new InternalServerErrorException('Error fetching user accounts');
     }
   }
+  
   //récupérer accounts par user
   async findAllByUser(userId: string): Promise<Account[]> {
     const accounts = await this.accountModel.find({ userId }).exec();
@@ -98,12 +99,6 @@ export class AccountsService {
     }
     return accounts;
   }
-
-
-
-
-
-
 
   // Fetch all accounts
   async findAll(): Promise<Account[]> {
@@ -121,13 +116,16 @@ export class AccountsService {
 
   // Fetch an account by RIB
   async findByRIB(rib: string): Promise<Account> {
-    const account = await this.accountModel.findOne({ rib }).exec();
+    const account = await this.accountModel.findOne({ 
+        rib: rib,
+        userId: null  // Ajoute la condition que user doit être null
+    }).exec();
+    
     if (!account) {
-      throw new NotFoundException(`Account with RIB ${rib} not found`);
+        throw new NotFoundException(`Account with RIB ${rib} not found or already linked to a user`);
     }
     return account;
-  }
-
+}
   // Update an account by ID
   async update(id: string, updateData: Partial<Account>): Promise<Account> {
     const updatedAccount = await this.accountModel
@@ -167,13 +165,35 @@ export class AccountsService {
   }
 
   // Get default account
-  async getDefaultAccount(): Promise<Account> {
-    const account = await this.accountModel.findOne({ isDefault: true }).exec();
-    if (!account) {
-      throw new NotFoundException('No default account found');
+  async getDefaultAccount(userId: string): Promise<Account> {
+    if (!userId) {
+        throw new BadRequestException('User ID is required');
     }
-    return account;
-  }
+
+    try {
+        if (!Types.ObjectId.isValid(userId)) {
+            throw new BadRequestException('Invalid user ID format');
+        }
+
+        const account = await this.accountModel.findOne({
+            userId: new Types.ObjectId(userId),
+            isDefault: true
+        }).exec();
+
+        if (!account) {
+            throw new NotFoundException(`No default account found for user ${userId}`);
+        }
+
+        return account;
+    } catch (error) {
+        if (error instanceof NotFoundException || error instanceof BadRequestException) {
+            throw error;
+        }
+        console.error('Error in getDefaultAccount:', error);
+        throw new InternalServerErrorException('Error while fetching default account');
+    }
+}
+
 
   // Update account balance
   async updateBalance(rib: string, amount: number): Promise<Account> {
