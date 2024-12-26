@@ -2,12 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document , Types } from 'mongoose';
 import { User } from '../../auth/schemas/user.schema'; 
 
-
-
 export type AccountDocument = Account & Document;
-
-
-
 @Schema({ timestamps: true }) // Automatically adds createdAt and updatedAt fields
 export class Account {
   @Prop({ required: false })
