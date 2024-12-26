@@ -12,6 +12,7 @@ import {
   HttpStatus,
   UseGuards,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { AccountsService } from './accounts.service';
 import { Account } from './entities/account.entity';
@@ -48,7 +49,7 @@ export class AccountsController {
       return this.accountsService.linkAccount(
           linkAccountDto.rib,
           linkAccountDto.nickname,
-          req.user.id // Récupérer le userId du token JWT
+          req.user.id 
       );
   }
   // Get account by ID
@@ -86,11 +87,22 @@ export class AccountsController {
   }
 
   // Get default account
-  @Get('default')
-  async getDefaultAccount(): Promise<Account> {
-    return this.accountsService.getDefaultAccount();
-  }
+  @Get('my/default')
+  @UseGuards(JwtAuthGuard)
+  async getDefaultAccount(@Request() req): Promise<Account> {
+      // Ajout de logs pour debug
+      console.log('Request user:', req.user);
+      
+      // Vérification de toutes les possibilités pour obtenir l'ID
+      const userId = req.user._id || req.user.id || req.user.userId;
+      
+      if (!userId) {
+          console.log('User data in request:', req.user);
+          throw new BadRequestException('User ID not found in request');
+      }
 
+      return this.accountsService.getDefaultAccount(userId);
+  }
   // Update account balance
   @Patch('balance/:rib')
   async updateBalance(
