@@ -80,8 +80,10 @@ export class AccountsService {
     }
   }
 
-  // Méthode pour obtenir les comptes d'un utilisateur
-  async getUserAccounts(userId: string): Promise<Account[]> {
+
+  
+  //récupérer accounts par user
+  async findAllByUser(userId: string): Promise<Account[]> {
     try {
       return await this.accountModel
         .find({ userId: new Types.ObjectId(userId) })
@@ -89,12 +91,6 @@ export class AccountsService {
     } catch (error) {
       throw new InternalServerErrorException('Error fetching user accounts');
     }
-  }
-  
-  //récupérer accounts par user
-  async findAllByUser(userId: string): Promise<Account[]> {
-    const accounts = await this.accountModel.find({ userId }).exec();
-    return accounts;
   }
 
   // Fetch all accounts
