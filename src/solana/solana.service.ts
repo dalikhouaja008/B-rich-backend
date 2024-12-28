@@ -1,15 +1,16 @@
-import { BadRequestException, ConflictException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { createWalletDto } from './dto/create-wallet.dto';
 import { UpdateSolanaDto } from './dto/update-solana.dto';
 import * as web3 from '@solana/web3.js';
 import { Wallet } from './schemas/wallet.schema';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import * as crypto from 'crypto';
 import { getOrca } from '@orca-so/sdk';
 import { ExchangeRateService } from 'src/exchange-rate/exchange-rate.service';
 import { Transaction } from './schemas/transaction.schema';
 import { User } from 'src/auth/schemas/user.schema';
+import { Account } from 'src/accounts/entities/account.entity';
 
 @Injectable()
 export class SolanaService {
@@ -22,6 +23,7 @@ export class SolanaService {
 
   constructor(
     @InjectModel(Wallet.name) private WalletModel: Model<Wallet>,
+    @InjectModel(Account.name) private accountModel: Model<Account>,
     private readonly exchangeRateService: ExchangeRateService,
     @InjectModel(Transaction.name) private TransactionModel: Model<Transaction>,
     @InjectModel(User.name) private UserModel: Model<User>,
@@ -160,38 +162,99 @@ private decryptPrivateKey(encryptedPrivateKey: string): Uint8Array {
   }
 
   //créer wallet en TND
-  async createTNDWallet(createWalletDto: createWalletDto, amount: number): Promise<Wallet> {
+  async createTNDWallet(createWalletDto: createWalletDto, amount: number, rib: string): Promise<Wallet> {
+    this.logger.log(`Creating TND wallet for user ${createWalletDto.userId} with amount ${amount} from RIB ${rib}`);
+    
     try {
-      // Vérifier si l'utilisateur a déjà un wallet TND
-      const existingWallet = await this.WalletModel.findOne({
-        userId: createWalletDto.userId,
-        currency: 'TND'
+      // Vérifier si le compte bancaire existe et a suffisamment de fonds
+      const bankAccount = await this.accountModel.findOne({ 
+        rib, 
+        userId: new Types.ObjectId(createWalletDto.userId) 
       });
-
-      if (existingWallet) {
-        // Mettre à jour le wallet existant
-        existingWallet.originalAmount = (existingWallet.originalAmount || 0) + amount;
-        return await existingWallet.save();
+      
+      if (!bankAccount) {
+        this.logger.error(`Bank account not found - RIB: ${rib}`);
+        throw new NotFoundException(`Bank account with RIB ${rib} not found or not linked to user`);
       }
-      const keypair = web3.Keypair.generate();
-      const publicKey = keypair.publicKey.toBase58();
-
-      // Créer un nouveau wallet TND
-      const newWallet = new this.WalletModel({
-        userId: createWalletDto.userId,
-        publicKey:publicKey,
-        currency: 'TND',
-        balance: 0,
-        originalAmount: amount,
-      });
-
-      return await newWallet.save();
+  
+      if (bankAccount.balance < amount) {
+        throw new BadRequestException(`Insufficient funds in bank account. Available: ${bankAccount.balance} TND`);
+      }
+  
+      this.logger.log(`Found bank account with balance: ${bankAccount.balance} TND`);
+  
+      try {
+        // Mettre à jour le compte bancaire d'abord
+        const updatedBankAccount = await this.accountModel.findOneAndUpdate(
+          { _id: bankAccount._id },
+          { $inc: { balance: -amount } },
+          { new: true }
+        );
+  
+        if (!updatedBankAccount) {
+          throw new Error('Failed to update bank account balance');
+        }
+  
+        // Vérifier si l'utilisateur a déjà un wallet TND
+        const existingWallet = await this.WalletModel.findOne({
+          userId: createWalletDto.userId,
+          currency: 'TND'
+        });
+  
+        if (existingWallet) {
+          // Mettre à jour le wallet existant
+          existingWallet.originalAmount = (existingWallet.originalAmount || 0) + amount;
+          return await existingWallet.save();
+        }
+        const keypair = web3.Keypair.generate();
+        const publicKey = keypair.publicKey.toBase58();
+  
+        // Créer un nouveau wallet TND
+        const newWallet = new this.WalletModel({
+          userId: createWalletDto.userId,
+          publicKey:publicKey,
+          currency: 'TND',
+          balance: 0,
+          originalAmount: amount,
+        });
+  
+       
+  
+        // Créer une transaction pour tracer le transfert
+        await this.TransactionModel.create({
+          signature: `TND_TRANSFER_${Date.now()}`,
+          walletPublicKey: newWallet.publicKey,
+          userId: createWalletDto.userId,
+          fromAddress: bankAccount.RIB,
+          toAddress: newWallet.publicKey,
+          amount: amount,
+          type: 'bank_to_wallet',
+          status: 'success',
+          blockTime: Date.now() / 1000,
+          fee: 0,
+          timestamp: new Date()
+        });
+  
+        this.logger.log(`Successfully created/updated TND wallet and deducted amount from bank account`);
+        
+        return await newWallet.save();
+  
+      } catch (error) {
+        // En cas d'erreur, tenter de restaurer le solde du compte bancaire
+        await this.accountModel.findOneAndUpdate(
+          { _id: bankAccount._id },
+          { $inc: { balance: amount } }
+        );
+        
+        this.logger.error('Error during wallet creation/update:', error);
+        throw new Error('Failed to process TND wallet operation');
+      }
+  
     } catch (error) {
-      this.logger.error('TND wallet creation/update error', error);
-      throw new BadRequestException('Failed to create or update TND wallet');
+      this.logger.error('Error in createTNDWallet:', error);
+      throw error;
     }
   }
-
   // Création d'un nouveau wallet
     // Création d'un nouveau wallet
     async createCurrencyWallet(createWalletDto: createWalletDto, currency: string, amount: number): Promise<Wallet> {

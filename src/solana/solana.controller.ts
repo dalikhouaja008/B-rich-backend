@@ -5,21 +5,23 @@ import { UpdateSolanaDto } from './dto/update-solana.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { JwtAuthGuard } from 'src/guards/jwtAuth.guard';
 
+
 @Controller('solana')
 export class SolanaController {
   constructor(private readonly solanaService: SolanaService) {}
 
-@Post('create-tnd-wallet')
-@UseGuards(JwtAuthGuard)
-async createTNDWallet(
-  @Request() req,
-  @Body('amount') amount: number
-) {
-  return this.solanaService.createTNDWallet(
-    { userId: req.user.id }, 
-    amount
-  );
-}
+  @Post('create-tnd-wallet')
+  @UseGuards(JwtAuthGuard)
+  async createTNDWallet(
+    @Request() req,
+    @Body() CreateTNDWalletDto: { amount: number; rib: string }
+  ) {
+    return this.solanaService.createTNDWallet(
+      { userId: req.user.id },
+      CreateTNDWalletDto.amount,
+      CreateTNDWalletDto.rib
+    );
+  }
   @Post('create-currency-wallet')
   @UseGuards(JwtAuthGuard)
   async createCurrencyWallet(
