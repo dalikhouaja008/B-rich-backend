@@ -217,9 +217,6 @@ private decryptPrivateKey(encryptedPrivateKey: string): Uint8Array {
           balance: 0,
           originalAmount: amount,
         });
-  
-       
-  
         // Créer une transaction pour tracer le transfert
         await this.TransactionModel.create({
           signature: `TND_TRANSFER_${Date.now()}`,
