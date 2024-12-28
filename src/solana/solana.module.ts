@@ -7,6 +7,7 @@ import { ExchangeRateModule } from 'src/exchange-rate/exchange-rate.module';
 import { Transaction, TransactionSchema } from './schemas/transaction.schema';
 import { AuthModule } from 'src/auth/auth.module';
 import { User, UserSchema } from 'src/auth/schemas/user.schema';
+import { Account, AccountSchema } from 'src/accounts/entities/account.entity';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { User, UserSchema } from 'src/auth/schemas/user.schema';
       { name: Wallet.name, schema: WalletSchema },
       { name: Transaction.name, schema: TransactionSchema },
       { name: User.name, schema: UserSchema }, 
+      {name : Account.name, schema: AccountSchema}
     ]),
     ExchangeRateModule,
     AuthModule
