@@ -94,9 +94,6 @@ export class AccountsService {
   //récupérer accounts par user
   async findAllByUser(userId: string): Promise<Account[]> {
     const accounts = await this.accountModel.find({ userId }).exec();
-    if (!accounts.length) {
-      throw new NotFoundException(`No accounts found for user with ID ${userId}`);
-    }
     return accounts;
   }
 
