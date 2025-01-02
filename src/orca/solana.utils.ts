@@ -2,6 +2,7 @@ import { Connection, PublicKey, Keypair } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { Network } from '@orca-so/sdk';
 import bs58 from 'bs58';
+import { BadRequestException } from '@nestjs/common';
 
 interface SplPortfolio {
     mintAddress: string;
@@ -111,11 +112,17 @@ export function bs58PublicKeyFromKeypair(keypair: Keypair): string {
     return bs58.encode(new Uint8Array(keypair.publicKey.toBytes()));
 }
 
-export function keypairFromBs58(
-    bs58PublicKey: string,
-    bs58SecretKey: string,
-): Keypair {
-    const publicKey = bs58.decode(bs58PublicKey);
-    const secretKey = bs58.decode(bs58SecretKey);
-    return new Keypair({ publicKey, secretKey });
-}
+export function keypairFromBs58(publicKey: string, secretKey: string): Keypair {
+    try {
+      if (!publicKey || !secretKey) {
+        throw new Error('Public key and secret key are required');
+      }
+  
+      return Keypair.fromSecretKey(bs58.decode(secretKey));
+    } catch (error) {
+      throw new BadRequestException({
+        description: 'Invalid keys provided',
+        error: error.message
+      });
+    }
+  }

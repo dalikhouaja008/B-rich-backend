@@ -9,3 +9,4 @@ export const CONFIG = {
     SLIPPAGE: new Decimal(0.01),
     ALLOWED_NETWORKS: ['mainnet-beta', 'devnet'],
 } as const;
+

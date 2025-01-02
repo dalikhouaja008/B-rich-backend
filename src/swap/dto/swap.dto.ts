@@ -7,45 +7,35 @@ export class SwapDto {
     @IsNotEmpty()
     @ApiProperty({ enum: CONFIG.ALLOWED_NETWORKS })
     network: string;
-
+  
     @IsNotEmpty()
-    @ApiProperty({
-        example: 'ETH'
-    })
+    @ApiProperty({ example: 'SOL' })
     tokenFrom: string;
-
+  
     @IsNotEmpty()
-    @ApiProperty({
-        example: 'SOL'
-    })
+    @ApiProperty({ example: 'USDC' })
     tokenTo: string;
-
+  
     @IsNotEmpty()
-    @ApiProperty({
-        minimum: 0.0,
-        exclusiveMinimum: true,
+    @ApiProperty({ 
+      description: 'Amount to swap',
+      minimum: 0.0,
+      exclusiveMinimum: true 
     })
     tokenFromAmount: number;
-
-    @ApiProperty({
-        description: 'Maximum difference between a trade’s expected price and the actual price',
-        minimum: 0.0,
-        maximum: 1.0,
-        exclusiveMinimum: true,
-        default: CONFIG.SLIPPAGE,
-        required: false
-    })
-    slippage: number;
-
+  
     @IsNotEmpty()
-    @ApiProperty({
-        description: 'Base58 encoded public key'
+    @ApiProperty({ 
+      description: 'Base58 encoded public key'
     })
     publicKey: string;
-
-    @IsNotEmpty()
+  
     @ApiProperty({
-        description: 'Base58 encoded secret key'
+      description: 'Slippage tolerance (0-1)',
+      minimum: 0.0,
+      maximum: 1.0,
+      default: 0.01,
+      required: false
     })
-    secretKey: string;
-}
+    slippage?: number;
+  }

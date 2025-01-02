@@ -5,17 +5,35 @@ import {
     Injectable,
     InternalServerErrorException,
     BadRequestException,
+    Logger,
+    NotFoundException,
 } from '@nestjs/common';
 import { WithdrawQuote } from '@orca-so/sdk';
-
+import * as web3 from '@solana/web3.js';
 import { BalanceInterface } from './interface/balance.interface';
 import { DepositInterface } from './interface/deposit.interface';
 import { WithdrawInterface } from './interface/withdraw.interface';
-import { getPoolDepositQuote, getPoolFromTokens, getWithdrawQuote, isDepositedPool, poolDeposit, poolWithdraw } from 'src/orca/pool';
+import { getPoolDepositQuote, getPoolFromTokens, getTokenFromPool, getWithdrawQuote, isDepositedPool, poolDeposit, poolWithdraw } from 'src/orca/pool';
 import { hasEnoughSPLFunds, hasFunds } from 'src/orca/orca-utils';
+import { InjectModel } from '@nestjs/mongoose';
+import { Wallet } from 'src/solana/schemas/wallet.schema';
+import { SolanaService } from 'src/solana/solana.service';
+import { Model } from 'mongoose';
+import { TransactionRecord } from 'src/solana/schemas/transaction.schema';
+import { getSwapQuote, swap } from 'src/orca/swap';
+import { CONFIG } from 'src/orca/config';
 
 @Injectable()
 export class PoolService {
+
+    private readonly logger = new Logger(PoolService.name);
+
+    constructor(
+      @InjectModel(Wallet.name) private walletModel: Model<Wallet>,
+      @InjectModel(TransactionRecord.name) private transactionModel: Model<TransactionRecord>,
+      private readonly solanaService: SolanaService
+    ) {}
+
   async balance(i: BalanceInterface): Promise<WithdrawQuote> {
     const pool = getPoolFromTokens(i.network, i.tokenA, i.tokenB);
     return getWithdrawQuote(pool, i.publicKey);
@@ -102,6 +120,8 @@ async withdraw(i: WithdrawInterface): Promise<TransactionSignature> {
         });
     }
 }
+
+ 
   create(createPoolDto: CreatePoolDto) {
     return 'This action adds a new pool';
   }
