@@ -1,5 +1,5 @@
 // src/accounts/dto/create-account.dto.ts
-import { IsString, IsEnum, IsNumber, IsOptional, IsBoolean, IsMongoId } from 'class-validator';
+import { IsString, IsEnum, IsNumber, IsOptional, IsBoolean, IsMongoId, IsNotEmpty } from 'class-validator';
 import { Types } from 'mongoose';
 
 export enum AccountType {
@@ -22,13 +22,14 @@ export class CreateAccountDto {
   @IsOptional()
   @IsEnum(AccountType)
   type?: AccountType;
+  
 //type: string;
   @IsOptional()
   @IsEnum(AccountStatus)
   status?: AccountStatus;
-//status: string;
   @IsString()
-  rib: string;
+  @IsNotEmpty()  
+  rib: string;  
 
   @IsNumber()
   @IsOptional()

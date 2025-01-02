@@ -16,7 +16,7 @@ export class Account extends Document {
   @Prop({ required: false, enum: ['active', 'inactive', 'blocked'], set: (value: string) => value?.toLowerCase(), default: 'active' })
   status: string;
 
-  @Prop({ required: false, unique: true })
+  @Prop({ required: true, unique: true })  
   rib: string;
   
   @Prop({ required: false })
@@ -32,9 +32,10 @@ export class Account extends Document {
     type: SchemaTypes.ObjectId, 
     ref: 'User', 
     required: false,
-    index: { sparse: true } // Définir l'index ici
+    default: null,  
+    index: { sparse: true } 
   })
-  userId: Types.ObjectId;
+  userId: Types.ObjectId | null;  // Ajouter | null
 }
 
 export const AccountSchema = SchemaFactory.createForClass(Account);

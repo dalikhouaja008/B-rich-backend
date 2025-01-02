@@ -3,10 +3,22 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose, { Document } from 'mongoose';
 
 @Schema()
+class TokenBalance {
+  @Prop({ required: true })
+  symbol: string;
+
+  @Prop({ required: true, default: 0 })
+  balance: number;
+
+  @Prop()
+  tokenAccount?: string;
+}
+
+@Schema()
 export class Wallet extends Document {
   @Prop() 
   userId: string;
-  @Prop() // Plus d'index unique ici
+  @Prop() 
   publicKey?: string;
   @Prop()
   privateKey?: string;
@@ -27,6 +39,8 @@ export class Wallet extends Document {
   originalAmount?: number;
   @Prop()
   convertedAmount?: number;
+  @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId }], default: [] })
+  tradedTokens: TokenBalance[];
 }
 
 export const WalletSchema = SchemaFactory.createForClass(Wallet);

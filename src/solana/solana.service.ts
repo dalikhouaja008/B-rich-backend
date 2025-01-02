@@ -8,7 +8,7 @@ import { Model, Types } from 'mongoose';
 import * as crypto from 'crypto';
 import { getOrca } from '@orca-so/sdk';
 import { ExchangeRateService } from 'src/exchange-rate/exchange-rate.service';
-import { Transaction } from './schemas/transaction.schema';
+import { TransactionRecord  } from './schemas/transaction.schema';
 import { User } from 'src/auth/schemas/user.schema';
 import { Account } from 'src/accounts/entities/account.entity';
 
@@ -25,7 +25,7 @@ export class SolanaService {
     @InjectModel(Wallet.name) private WalletModel: Model<Wallet>,
     @InjectModel(Account.name) private accountModel: Model<Account>,
     private readonly exchangeRateService: ExchangeRateService,
-    @InjectModel(Transaction.name) private TransactionModel: Model<Transaction>,
+    @InjectModel(TransactionRecord .name) private TransactionModel: Model<TransactionRecord >,
     @InjectModel(User.name) private UserModel: Model<User>,
     @Optional() @Inject('ENCRYPTION_KEY') encryptionKey?: string
   ) {
@@ -41,7 +41,7 @@ export class SolanaService {
 
 // Robust Encryption Method
  // Robust Encryption Method
- private encryptPrivateKey(privateKey: Uint8Array): string {
+ public encryptPrivateKey(privateKey: Uint8Array): string {
   try {
     const iv = crypto.randomBytes(this.IV_LENGTH);
     const cipher = crypto.createCipheriv('aes-256-cbc', this.ENCRYPTION_KEY, iv);
@@ -54,7 +54,7 @@ export class SolanaService {
 }
 
 // Robust Decryption Method
-private decryptPrivateKey(encryptedPrivateKey: string): Uint8Array {
+public decryptPrivateKey(encryptedPrivateKey: string): Uint8Array {
   try {
     // Split IV and encrypted data
     const [ivHex, encryptedHex] = encryptedPrivateKey.split(':');
@@ -222,7 +222,7 @@ private decryptPrivateKey(encryptedPrivateKey: string): Uint8Array {
           signature: `TND_TRANSFER_${Date.now()}`,
           walletPublicKey: newWallet.publicKey,
           userId: createWalletDto.userId,
-          fromAddress: bankAccount.RIB,
+          fromAddress: bankAccount.rib,
           toAddress: newWallet.publicKey,
           amount: amount,
           type: 'bank_to_wallet',
@@ -346,6 +346,7 @@ private decryptPrivateKey(encryptedPrivateKey: string): Uint8Array {
       if (wallet) {
         // Update existing wallet balance
         wallet.balance += convertedAmount;
+        wallet.originalAmount += amount;
       } else {
         // Create new wallet if none exists
         const keypair = web3.Keypair.generate();
@@ -356,7 +357,8 @@ private decryptPrivateKey(encryptedPrivateKey: string): Uint8Array {
           network: 'devnet',
           currency: fromCurrency,
           balance: convertedAmount,
-          privateKey: this.encryptPrivateKey(keypair.secretKey)
+          privateKey: this.encryptPrivateKey(keypair.secretKey),
+          originalAmount:amount
         });
       }
   
@@ -742,7 +744,7 @@ private decryptPrivateKey(encryptedPrivateKey: string): Uint8Array {
       throw new Error('Failed to update wallet balances');
     }
   }
-  private async saveTransactionDetails(transactionData: Transaction) {
+  private async saveTransactionDetails(transactionData: TransactionRecord ) {
     try {
       this.logger.log('Saving transaction details:', transactionData);
       

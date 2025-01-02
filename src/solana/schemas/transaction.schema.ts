@@ -2,7 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
 @Schema({ timestamps: true })
-export class Transaction extends Document {
+export class TransactionRecord  extends Document {
   @Prop({ required: true })
   signature: string;
 
@@ -39,4 +39,4 @@ export class Transaction extends Document {
   
 }
 
-export const TransactionSchema = SchemaFactory.createForClass(Transaction);
+export const TransactionSchema = SchemaFactory.createForClass(TransactionRecord );

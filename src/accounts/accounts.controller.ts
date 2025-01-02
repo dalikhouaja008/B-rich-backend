@@ -43,14 +43,22 @@ export class AccountsController {
   @UseGuards(JwtAuthGuard)
   async linkAccount(
       @Request() req,
-      @Body() linkAccountDto: { rib: string; nickname: string }
+      @Body() linkAccountDto: LinkAccountDto
   ): Promise<Account> {
       this.logger.log(`Linking account request received: ${JSON.stringify(linkAccountDto)}`);
-      return this.accountsService.linkAccount(
+      
+      if (!req.user.id) {
+          throw new BadRequestException('User ID is required');
+      }
+  
+      const result = await this.accountsService.linkAccount(
           linkAccountDto.rib,
           linkAccountDto.nickname,
-          req.user.id 
+          req.user.id
       );
+  
+      this.logger.log('Link account result:', result);
+      return result;
   }
   // Get account by ID
   @Get(':id')

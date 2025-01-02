@@ -8,14 +8,7 @@ import { getNetwork } from 'src/orca/solana.utils';
 @Controller('token')
 export class TokenController {
   constructor(private readonly tokenService: TokenService) {}
-  @Post()
-  @HttpCode(200)
-  async balance(@Body() dto: TokenDto) {
-      const network = getNetwork(dto.network);
-      return this.tokenService.token({
-          network,
-      });
-  }
+
   @Post()
   create(@Body() createTokenDto: CreateTokenDto) {
     return this.tokenService.create(createTokenDto);

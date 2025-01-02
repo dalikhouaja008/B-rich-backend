@@ -13,22 +13,38 @@ export class AccountsService {
   ) {}
 
   // Create a new account
-  async create(createAccountDto: CreateAccountDto): Promise<Account> {
-    try {
-      const createdAccount = new this.accountModel({
-        ...createAccountDto,
-        userId: null,    // Explicitement null
-        nickname: null,  // Explicitement null
-        isDefault: false // S'assurer que c'est false par défaut
-      });
-      return await createdAccount.save();
-    } catch (error) {
-      if (error.code === 11000) {
-        throw new ConflictException('Account with this RIB already exists');
-      }
-      throw error;
+// Ajoutez des logs pour déboguer
+
+async create(createAccountDto: CreateAccountDto): Promise<Account> {
+  try {
+    const accountData: AccountData = {
+      accountNumber: createAccountDto.accountNumber,
+      rib: createAccountDto.rib,  
+      type: createAccountDto.type,
+      status: createAccountDto.status,
+      balance: createAccountDto.balance,
+      userId: null,
+      nickname: null,
+      isDefault: false
+    };
+
+    console.log('Account data:', accountData);
+    
+    const createdAccount = new this.accountModel(accountData);
+    console.log('Created account model:', createdAccount.toObject());
+    
+    const savedAccount = await createdAccount.save();
+    console.log('Saved account:', savedAccount.toObject());
+    
+    return savedAccount;
+  } catch (error) {
+    console.error('Error creating account:', error);
+    if (error.code === 11000) {
+      throw new ConflictException('Account with this RIB already exists');
     }
+    throw error;
   }
+}
   //link bank account to user
   async linkAccount(rib: string, nickname: string, userId: string): Promise<Account> {
     this.logger.log(`Starting account linking process for RIB: ${rib} with userId: ${userId}`);
@@ -37,25 +53,40 @@ export class AccountsService {
         this.logger.log(`Found existing account for RIB: ${rib}`);
 
         // Vérifier si le compte est déjà lié
-        if (existingAccount.user) {
+        if (existingAccount.userId) {  // Changer user à userId
             this.logger.warn(`Account ${rib} is already linked to a user`);
             throw new ConflictException('Account is already linked to a user');
         }
+
+        // Convertir userId en ObjectId
+        const userObjectId = new Types.ObjectId(userId);
 
         // Mettre à jour le compte avec le userId
         const updatedAccount = await this.accountModel.findOneAndUpdate(
             { rib },
             { 
-                nickname,
-                userId,  // Ajouter le userId
-                updatedAt: new Date()
+                $set: {  // Utiliser $set pour forcer la mise à jour
+                    nickname,
+                    userId: userObjectId,  // Convertir en ObjectId
+                    updatedAt: new Date()
+                }
             },
-            { new: true }
+            { 
+                new: true,
+                runValidators: true  // Activer la validation
+            }
         ).exec();
 
         if (!updatedAccount) {
             this.logger.error(`Failed to update account with RIB: ${rib}`);
             throw new InternalServerErrorException('Failed to update account');
+        }
+
+        // Vérifier si la mise à jour a réussi
+        this.logger.log('Updated account:', updatedAccount);
+        
+        if (!updatedAccount.userId) {
+            throw new InternalServerErrorException('Failed to update userId');
         }
 
         this.logger.log(`Successfully linked account with RIB: ${rib} to user: ${userId}`);
@@ -80,8 +111,6 @@ export class AccountsService {
     }
   }
 
-
-  
   //récupérer accounts par user
   async findAllByUser(userId: string): Promise<Account[]> {
     try {

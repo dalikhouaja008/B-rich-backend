@@ -17,8 +17,8 @@ export class Account {
   @Prop({ required: false, enum: ['active', 'inactive'] ,set: (value: string) => value?.toLowerCase() }) // Restrict status to specific values
   status: string; // Account status (e.g., Active, Inactive)
 
-  @Prop({ required: false, unique: true }) // Ensure RIB is unique
-  RIB: string; // Bank Identifier (RIB)
+  @Prop({ required: true, unique: true })
+  rib: string;  // Utilisez 'rib' en minuscules pour être cohérent
 
   @Prop({ default: false })
   isDefault: boolean; // Whether this is the default account
@@ -26,8 +26,8 @@ export class Account {
   @Prop({ required: false, type: Number, default: 0 })
   balance: number; // Account balance
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: false }) // Reference to the User schema
-  user: Types.ObjectId; // Associated user
+  @Prop({ type: Types.ObjectId, ref: 'User', required: false })
+  userId: Types.ObjectId;  // Utiliser uniquement userId, pas user
 }
 
 // Generate a Mongoose schema from the Account class

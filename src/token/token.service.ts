@@ -8,9 +8,7 @@ import { TokenInfo } from '@solana/spl-token-registry';
 @Injectable()
 export class TokenService {
   
-  async token(i: TokenInterface): Promise<TokenInfo[]> {
-    return getAllTokens(i.network);
-}
+
   create(createTokenDto: CreateTokenDto) {
     return 'This action adds a new token';
   }
