@@ -20,6 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@jup-ag/api": "^6.0.32",
+    "@jup-ag/core": "^4.0.0-beta.21",
     "@nestjs-modules/mailer": "^2.0.2",
     "@nestjs/common": "^10.4.8",
     "@nestjs/config": "^3.2.2",
@@ -35,7 +37,7 @@
     "@orca-so/sdk": "^1.2.26",
     "@project-serum/anchor": "^0.26.0",
     "@sendgrid/mail": "^8.1.4",
-    "@solana/spl-token": "^0.3.9",
+    "@solana/spl-token": "^0.3.11",
     "@solana/spl-token-registry": "^0.2.4574",
     "@solana/wallet-adapter-base": "^0.9.23",
     "@solana/wallet-adapter-react": "^0.15.35",
@@ -47,6 +49,7 @@
     "@types/passport-jwt": "^4.0.1",
     "@types/puppeteer": "^5.4.7",
     "bcrypt": "^5.1.1",
+    "bs58": "^6.0.0",
     "cheerio": "^1.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
