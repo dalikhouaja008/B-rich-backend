@@ -11,7 +11,7 @@ import { Keypair } from '@solana/web3.js';
 @Controller('swap')
 export class SwapController {
     constructor(
-        private readonly solanaService: SolanaService,
+        
         @InjectModel(Wallet.name) private WalletModel: Model<Wallet>,
         private readonly swapService: SwapService) {}
     @Get('tokens')
@@ -43,16 +43,38 @@ export class SwapController {
         return this.swapService.getSwapQuote(quoteDto);
     }
 
+    @Post('prepare')
+    async executeSwap( @Body() params: {
+      userPublicKey: string;
+      inputMint: string;
+      outputMint: string;
+      amount: number;
+      slippage: number;
+    }) {
+      const result = await this.swapService.swap(params);
+      return result;
+    }
+
+    @Get('status/:signature')
+    async checkTransactionStatus(@Param('signature') signature: string) {
+      return this.swapService.checkTransactionStatus(signature);
+    }
+
+    @Post('retry')
     @UseGuards(JwtAuthGuard)
-    @Post('execute')
-    async executeSwap(@Body() swapDto: {
-        userPublicKey: string;
+    async retrySwap(
+      @Request() req,
+      @Body() swapParams: {
         inputMint: string;
         outputMint: string;
         amount: number;
         slippage: number;
-    }) {
-        return this.swapService.swap(swapDto);
+      }
+    ) {
+      return this.swapService.retrySwap({
+        userPublicKey: req.user.publicKey,
+        ...swapParams
+      });
     }
 
 }
