@@ -8,7 +8,7 @@ import { Model, Types } from 'mongoose';
 import * as crypto from 'crypto';
 import { getOrca } from '@orca-so/sdk';
 import { ExchangeRateService } from 'src/exchange-rate/exchange-rate.service';
-import { TransactionRecord  } from './schemas/transaction.schema';
+import { TransactionDocument   } from './schemas/transaction.schema';
 import { User } from 'src/auth/schemas/user.schema';
 import { Account } from 'src/accounts/entities/account.entity';
 
@@ -25,7 +25,7 @@ export class SolanaService {
     @InjectModel(Wallet.name) private WalletModel: Model<Wallet>,
     @InjectModel(Account.name) private accountModel: Model<Account>,
     private readonly exchangeRateService: ExchangeRateService,
-    @InjectModel(TransactionRecord .name) private TransactionModel: Model<TransactionRecord >,
+    @InjectModel(TransactionDocument .name) private TransactionModel: Model<TransactionDocument  >,
     @InjectModel(User.name) private UserModel: Model<User>,
     @Optional() @Inject('ENCRYPTION_KEY') encryptionKey?: string
   ) {
@@ -744,7 +744,7 @@ public decryptPrivateKey(encryptedPrivateKey: string): Uint8Array {
       throw new Error('Failed to update wallet balances');
     }
   }
-  private async saveTransactionDetails(transactionData: TransactionRecord ) {
+  private async saveTransactionDetails(transactionData: TransactionDocument  ) {
     try {
       this.logger.log('Saving transaction details:', transactionData);
       

@@ -4,7 +4,7 @@ import { SolanaController } from './solana.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Wallet, WalletSchema } from './schemas/wallet.schema';
 import { ExchangeRateModule } from 'src/exchange-rate/exchange-rate.module';
-import { TransactionRecord, TransactionSchema } from './schemas/transaction.schema';
+import { TransactionDocument , TransactionSchema } from './schemas/transaction.schema';
 import { AuthModule } from 'src/auth/auth.module';
 import { User, UserSchema } from 'src/auth/schemas/user.schema';
 import { Account, AccountSchema } from 'src/accounts/entities/account.entity';
@@ -13,7 +13,7 @@ import { Account, AccountSchema } from 'src/accounts/entities/account.entity';
   imports: [
     MongooseModule.forFeature([
       { name: Wallet.name, schema: WalletSchema },
-      { name: TransactionRecord.name, schema: TransactionSchema },
+      { name: TransactionDocument .name, schema: TransactionSchema },
       { name: User.name, schema: UserSchema }, 
       {name : Account.name, schema: AccountSchema}
     ]),
