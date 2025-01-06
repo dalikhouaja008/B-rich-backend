@@ -13,26 +13,27 @@ import {
 import { Decimal } from 'decimal.js';
 import axios from 'axios';
 import { Wallet } from 'src/solana/schemas/wallet.schema';
-import { TransactionRecord } from 'src/solana/schemas/transaction.schema';
+import { TransactionDocument  } from 'src/solana/schemas/transaction.schema';
 import { SwapResult } from './interface/swapResult.interface';
 import { TokenBalance } from './interface/tokenBalance.interface';
 import { SolanaService } from 'src/solana/solana.service';
+import { SwapDto } from './dto/swap.dto';
 
 @Injectable()
 export class SwapService {
   private readonly logger = new Logger(SwapService.name);
   private readonly connection: Connection;
   private readonly JUPITER_API_URL = 'https://quote-api.jup.ag/v6';
-  private readonly JUPITER_TOKENS_URL = 'https://token.jup.ag/all';
+  private readonly JUPITER_TOKENS_URL = 'https://token.jup.ag/strict';  
   private cachedTokens: { [key: string]: TokenInfo } = {};
-  private tokenCache: any[] = [];
+  private tokenCache: Map<string, TokenInfo> = new Map();
   private lastCacheUpdate: number = 0;
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes en millisecondes
 
   constructor(
     private readonly solanaService: SolanaService,
       @InjectModel(Wallet.name) private walletModel: Model<Wallet>,
-      @InjectModel(TransactionRecord.name) private transactionModel: Model<TransactionRecord>
+      @InjectModel(TransactionDocument .name) private transactionModel: Model<TransactionDocument >
   ) {
       this.connection = new Connection('https://api.devnet.solana.com', 'confirmed');
       this.initializeTokensCache();
@@ -42,31 +43,48 @@ export class SwapService {
       await this.updateTokensCache();
   }
 
-  private async updateTokensCache() {
-      try {
-          const currentTime = Date.now();
-          if (currentTime - this.lastCacheUpdate < this.CACHE_DURATION) {
-              return; // Utiliser le cache si moins de 5 minutes se sont écoulées
-          }
+  private async updateTokensCache(): Promise<void> {
+    try {
+        const currentTime = Date.now();
+        if (currentTime - this.lastCacheUpdate < this.CACHE_DURATION && this.tokenCache.size > 0) {
+            return; // Utiliser le cache existant
+        }
 
-          this.logger.debug('Updating tokens cache from Jupiter...');
-          
-          // Récupérer tous les tokens depuis Jupiter
-          const { data } = await axios.get(this.JUPITER_TOKENS_URL);
-          
-          // Mettre à jour le cache
-          this.cachedTokens = data.reduce((acc: { [key: string]: TokenInfo }, token: TokenInfo) => {
-              acc[token.address] = token;
-              return acc;
-          }, {});
+        this.logger.debug('Updating tokens cache...');
+        
+        const response = await axios.get(this.JUPITER_TOKENS_URL);
+        const tokens = response.data;
 
-          this.lastCacheUpdate = currentTime;
-          this.logger.debug(`Successfully cached ${Object.keys(this.cachedTokens).length} tokens`);
-      } catch (error) {
-          this.logger.error('Failed to update tokens cache:', error);
-          throw new BadRequestException('Failed to fetch available tokens');
-      }
+        // Vider et mettre à jour le cache
+        this.tokenCache.clear();
+        tokens.forEach(token => {
+            this.tokenCache.set(token.symbol, {
+                address: token.address,
+                symbol: token.symbol,
+                decimals: token.decimals,
+                name: token.name
+            });
+        });
+
+        this.lastCacheUpdate = currentTime;
+        this.logger.debug(`Cache updated with ${this.tokenCache.size} tokens`);
+
+    } catch (error) {
+        this.logger.error('Failed to update tokens cache:', error);
+        throw new BadRequestException('Failed to fetch token list');
+    }
+}
+
+private async getTokenMintBySymbol(symbol: string): Promise<string> {
+  await this.updateTokensCache();
+  
+  const token = this.tokenCache.get(symbol.toUpperCase());
+  if (!token) {
+      throw new BadRequestException(`Token ${symbol} not supported`);
   }
+  
+  return token.address;
+}
 
   private async updateWalletTradedTokens(walletId: string, swapResult: SwapResult) {
     try {
@@ -101,29 +119,16 @@ export class SwapService {
       throw error;
     }
   }
-  async getAllTokens(limit: number = 15) {
-    try {
-        if (this.tokenCache.length === 0) {
-            // Faire l'appel API pour obtenir tous les tokens
-            const response = await axios.get('https://token.jup.ag/strict');
-            this.tokenCache = response.data;
-            this.logger.debug(`Successfully cached ${this.tokenCache.length} tokens`);
-        }
-
-        // Prendre seulement les 15 premiers tokens et extraire les informations essentielles
-        const limitedTokens = this.tokenCache
-            .slice(0, limit)
-            .map(token => ({
-                mint: token.address,
-                symbol: token.symbol,
-                name: token.name
-            }));
-
-        return limitedTokens;
-    } catch (error) {
-        this.logger.error('Failed to fetch tokens:', error);
-        throw new BadRequestException('Failed to fetch tokens');
-    }
+  async getAvailableTokens() {
+    await this.updateTokensCache();
+    return Array.from(this.tokenCache.values())
+        .slice(0, 10)  // Limite aux 10 premiers tokens
+        .map(token => ({
+            symbol: token.symbol,
+            name: token.name,
+            mint: token.address,
+            decimals: token.decimals
+        }));
 }
 
   async getTokenByMint(mint: string): Promise<TokenInfo | null> {
@@ -148,65 +153,100 @@ export class SwapService {
   }
 
   async getSwapQuote(params: {
-      inputMint: string;
-      outputMint: string;
-      amount: number;
-      slippage: number;
-  }) {
-      try {
-          // Vérifier si les tokens sont supportés
-          const inputToken = await this.getTokenByMint(params.inputMint);
-          const outputToken = await this.getTokenByMint(params.outputMint);
-
-          if (!inputToken) {
-              throw new BadRequestException(`Input token ${params.inputMint} is not supported`);
-          }
-          if (!outputToken) {
-              throw new BadRequestException(`Output token ${params.outputMint} is not supported`);
-          }
-
-          const amountInLamports = Math.floor(params.amount * LAMPORTS_PER_SOL).toString();
-          const slippageBps = Math.floor(params.slippage * 10000);
-
-          this.logger.debug('Requesting swap quote with params:', {
-              inputMint: params.inputMint,
-              outputMint: params.outputMint,
-              amount: amountInLamports,
-              slippageBps
-          });
-
-          const response = await axios.get(`${this.JUPITER_API_URL}/quote`, {
-              params: {
-                  inputMint: params.inputMint,
-                  outputMint: params.outputMint,
-                  amount: amountInLamports,
-                  slippageBps: slippageBps,
-                  feeBps: 4,
-                  onlyDirectRoutes: false,
-                  asLegacyTransaction: true
-              }
-          });
-
-          return response.data;
-      } catch (error) {
-          if (axios.isAxiosError(error) && error.response?.data?.error) {
-              this.logger.error('Jupiter API Error:', error.response.data);
-              throw new BadRequestException(error.response.data.error);
-          }
-          this.logger.error('Error getting swap quote:', error);
-          throw new BadRequestException('Failed to get swap quote');
-      }
-  }
-  async swap(params: {
-    userPublicKey: string;
-    inputMint: string;
-    outputMint: string;
+    fromSymbol: string;
+    toSymbol: string;
     amount: number;
     slippage: number;
-  }) {
+}) {
     try {
+        // Validation des paramètres
+        if (!params.fromSymbol || !params.toSymbol) {
+            throw new BadRequestException('Invalid token symbols');
+        }
+
+        if (params.amount <= 0) {
+            throw new BadRequestException('Amount must be greater than 0');
+        }
+
+        // Obtenir les mint addresses
+        const inputMint = await this.getTokenMintBySymbol(params.fromSymbol);
+        const outputMint = await this.getTokenMintBySymbol(params.toSymbol);
+
+        // Obtenir les informations des tokens
+        const inputToken = this.tokenCache.get(params.fromSymbol.toUpperCase());
+        const outputToken = this.tokenCache.get(params.toSymbol.toUpperCase());
+
+        // Calculer le montant en unités minimales
+        const amountInSmallestUnit = Math.floor(
+            params.amount * Math.pow(10, inputToken.decimals)
+        ).toString();
+
+        const slippageBps = Math.floor(params.slippage * 10000);
+
+        this.logger.debug('Requesting quote with params:', {
+            inputMint,
+            outputMint,
+            amount: amountInSmallestUnit,
+            slippageBps
+        });
+
+        // Appel à l'API Jupiter avec retry
+        let retries = 3;
+        while (retries > 0) {
+            try {
+                const response = await axios.get(`${this.JUPITER_API_URL}/quote`, {
+                    params: {
+                        inputMint,
+                        outputMint,
+                        amount: amountInSmallestUnit,
+                        slippageBps,
+                        feeBps: 4,
+                        onlyDirectRoutes: true,
+                        asLegacyTransaction: true
+                    },
+                    timeout: 10000
+                });
+
+                // Convertir les montants en retour
+                const quote = response.data;
+                return {
+                    inputAmount: parseFloat(quote.inputAmount) / Math.pow(10, inputToken.decimals),
+                    outputAmount: parseFloat(quote.outputAmount) / Math.pow(10, outputToken.decimals),
+                    fromSymbol: params.fromSymbol,
+                    toSymbol: params.toSymbol,
+                    price: quote.price,
+                    priceImpact: quote.priceImpact
+                };
+
+            } catch (error) {
+                retries--;
+                if (retries === 0) {
+                    if (axios.isAxiosError(error) && error.response?.data?.error) {
+                        throw new BadRequestException(error.response.data.error);
+                    }
+                    throw error;
+                }
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+    } catch (error) {
+        this.logger.error('Failed to get quote:', error);
+        if (error instanceof BadRequestException) {
+            throw error;
+        }
+        throw new BadRequestException(
+            'Failed to get quote: ' + (error.message || 'Unknown error')
+        );
+    }
+}
+  async swap(swapDto: SwapDto) {
+ 
+    try {
+      const inputMint = await this.getTokenMintBySymbol(swapDto.fromSymbol);
+      const outputMint = await this.getTokenMintBySymbol(swapDto.toSymbol);
+
       const wallet = await this.walletModel.findOne({ 
-        publicKey: params.userPublicKey 
+        publicKey: swapDto.userPublicKey 
       });
       
       if (!wallet || !wallet.privateKey) {
@@ -214,20 +254,20 @@ export class SwapService {
       }
 
       // 1. Convertir le montant en lamports
-      const amountInLamports = (params.amount * LAMPORTS_PER_SOL).toString();
+      const amountInLamports = (swapDto.amount * LAMPORTS_PER_SOL).toString();
 
       // 2. Obtenir le quote
       const quoteResponse = await this.getQuote({
-        inputMint: params.inputMint,
-        outputMint: params.outputMint,
+        inputMint,
+        outputMint,
         amount: amountInLamports,
-        slippageBps: Math.round(params.slippage * 10000)
+        slippageBps: Math.round(swapDto.slippage * 10000)
       });
 
       // 3. Obtenir la transaction
       const swapTransaction = await this.getSwapTransaction({
         quoteResponse,
-        userPublicKey: params.userPublicKey
+        userPublicKey: swapDto.userPublicKey
       });
 
       // 4. Décrypter la clé privée
@@ -429,7 +469,7 @@ export class SwapService {
     }
   }
 
-  async retrySwap(params: {
+ /* async retrySwap(params: {
     userPublicKey: string;
     inputMint: string;
     outputMint: string;
@@ -443,5 +483,5 @@ export class SwapService {
       this.logger.error('Retry swap failed:', error);
       throw new BadRequestException('Failed to retry swap');
     }
-  }
+  }*/
 }

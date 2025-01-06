@@ -7,6 +7,7 @@ import { Wallet } from 'src/solana/schemas/wallet.schema';
 import { SolanaService } from 'src/solana/solana.service';
 import { Model } from 'mongoose';
 import { Keypair } from '@solana/web3.js';
+import { SwapDto } from './dto/swap.dto';
 
 @Controller('swap')
 export class SwapController {
@@ -16,7 +17,7 @@ export class SwapController {
         private readonly swapService: SwapService) {}
     @Get('tokens')
     async getAllTokens() {
-        return this.swapService.getAllTokens();
+        return this.swapService.getAvailableTokens();
     }
 
     @Get('tokens/:mint')
@@ -35,8 +36,8 @@ export class SwapController {
 
     @Post('quote')
     async getQuote(@Body() quoteDto: {
-        inputMint: string;
-        outputMint: string;
+        fromSymbol: string;
+        toSymbol: string;
         amount: number;
         slippage: number;
     }) {
@@ -44,15 +45,8 @@ export class SwapController {
     }
 
     @Post('prepare')
-    async executeSwap( @Body() params: {
-      userPublicKey: string;
-      inputMint: string;
-      outputMint: string;
-      amount: number;
-      slippage: number;
-    }) {
-      const result = await this.swapService.swap(params);
-      return result;
+    async executeSwap(@Body() swapDto: SwapDto) {
+      return this.swapService.swap(swapDto);
     }
 
     @Get('status/:signature')
@@ -60,7 +54,7 @@ export class SwapController {
       return this.swapService.checkTransactionStatus(signature);
     }
 
-    @Post('retry')
+   /* @Post('retry')
     @UseGuards(JwtAuthGuard)
     async retrySwap(
       @Request() req,
@@ -75,6 +69,6 @@ export class SwapController {
         userPublicKey: req.user.publicKey,
         ...swapParams
       });
-    }
+    }*/
 
 }

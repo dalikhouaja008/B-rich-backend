@@ -1,8 +1,11 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
-@Schema({ timestamps: true })
-export class TransactionRecord  extends Document {
+@Schema({ 
+  timestamps: true,
+  collection: 'transactions'  // Exactement le même nom que dans MongoDB
+})
+export class TransactionDocument extends Document {
   @Prop({ required: true })
   signature: string;
 
@@ -35,8 +38,6 @@ export class TransactionRecord  extends Document {
 
   @Prop()
   fee: number;
-
-  
 }
 
-export const TransactionSchema = SchemaFactory.createForClass(TransactionRecord );
+export const TransactionSchema = SchemaFactory.createForClass(TransactionDocument);

@@ -4,13 +4,13 @@ import { PoolController } from './pool.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Wallet, WalletSchema } from 'src/solana/schemas/wallet.schema';
 import { SolanaModule } from 'src/solana/solana.module';
-import { TransactionRecord  , TransactionSchema } from 'src/solana/schemas/transaction.schema';
+import { TransactionDocument   , TransactionSchema } from 'src/solana/schemas/transaction.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Wallet.name, schema: WalletSchema },
-      { name: TransactionRecord.name, schema: TransactionSchema }
+      { name: TransactionDocument .name, schema: TransactionSchema }
     ]),
     SolanaModule
   ],

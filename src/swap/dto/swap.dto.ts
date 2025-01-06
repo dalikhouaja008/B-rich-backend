@@ -1,41 +1,50 @@
-import { IsNotEmpty } from 'class-validator';
+import { IsNotEmpty, IsNumber, Max, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { CONFIG } from 'src/orca/config';
 
 
 export class SwapDto {
-    @IsNotEmpty()
-    @ApiProperty({ enum: CONFIG.ALLOWED_NETWORKS })
-    network: string;
-  
-    @IsNotEmpty()
-    @ApiProperty({ example: 'SOL' })
-    tokenFrom: string;
-  
-    @IsNotEmpty()
-    @ApiProperty({ example: 'USDC' })
-    tokenTo: string;
+
   
     @IsNotEmpty()
     @ApiProperty({ 
-      description: 'Amount to swap',
-      minimum: 0.0,
-      exclusiveMinimum: true 
+        description: 'Input token symbol (e.g., SOL, USDC)',
+        example: 'SOL'
     })
-    tokenFromAmount: number;
-  
+    fromSymbol: string;
+
     @IsNotEmpty()
     @ApiProperty({ 
-      description: 'Base58 encoded public key'
+        description: 'Output token symbol (e.g., USDC, SOL)',
+        example: 'USDC'
     })
-    publicKey: string;
-  
+    toSymbol: string;
+
+    @IsNotEmpty()
+    @IsNumber()
+    @Min(0)
+    @ApiProperty({ 
+        description: 'Amount to swap',
+        minimum: 0.0,
+        exclusiveMinimum: true 
+    })
+    amount: number;
+
+    @IsNotEmpty()
+    @ApiProperty({ 
+        description: 'User public key'
+    })
+    userPublicKey: string;
+
+    @IsNumber()
+    @Min(0)
+    @Max(1)
     @ApiProperty({
-      description: 'Slippage tolerance (0-1)',
-      minimum: 0.0,
-      maximum: 1.0,
-      default: 0.01,
-      required: false
+        description: 'Slippage tolerance (0-1)',
+        minimum: 0.0,
+        maximum: 1.0,
+        default: 0.01,
+        required: false
     })
-    slippage?: number;
+    slippage?: number = 0.01;
   }

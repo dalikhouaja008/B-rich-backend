@@ -19,7 +19,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Wallet } from 'src/solana/schemas/wallet.schema';
 import { SolanaService } from 'src/solana/solana.service';
 import { Model } from 'mongoose';
-import { TransactionRecord } from 'src/solana/schemas/transaction.schema';
+import { TransactionDocument  } from 'src/solana/schemas/transaction.schema';
 import { getSwapQuote, swap } from 'src/orca/swap';
 import { CONFIG } from 'src/orca/config';
 
@@ -30,7 +30,7 @@ export class PoolService {
 
     constructor(
       @InjectModel(Wallet.name) private walletModel: Model<Wallet>,
-      @InjectModel(TransactionRecord.name) private transactionModel: Model<TransactionRecord>,
+      @InjectModel(TransactionDocument .name) private transactionModel: Model<TransactionDocument >,
       private readonly solanaService: SolanaService
     ) {}
 
